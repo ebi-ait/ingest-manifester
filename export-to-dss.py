@@ -35,22 +35,22 @@ class Worker(ConsumerProducerMixin):
 
     def get_consumers(self, Consumer, channel):
         return [Consumer(queues=self.queues,
-                         on_message=self.on_message)]
+                         callbacks=[self.on_message], accept=['json'])]
 
     def on_message(self, body, message):
         message.ack()
         success = False
         start = time.clock()
         try:
-            receiver.run(json.loads(body))
+            receiver.run(body)
             success = True
         except Exception as e1:
             logger.exception(str(e1))
-            logger.error(f"Failed to process the exporter message: {body} due to error: {str(e1)}")
+            logger.error(f"Failed to process the exporter message: {json.dumps(body)} due to error: {str(e1)}")
         if success:
-            logger.info(f"Notifying state tracker of completed bundle: {body}")
+            logger.info(f"Notifying state tracker of completed bundle: {json.dumps(body)}")
             self.producer.publish(
-                json.loads(body),
+                body,
                 exchange=EXCHANGE,
                 routing_key=ASSAY_COMPLETED_ROUTING_KEY
             )
