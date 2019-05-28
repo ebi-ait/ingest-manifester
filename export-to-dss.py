@@ -22,6 +22,7 @@ ANALYSIS_QUEUE = 'ingest.bundle.analysis.create'
 
 ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
+ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
 
 logger = logging.getLogger(__name__)
 receiver = IngestReceiver()
@@ -34,19 +35,27 @@ class Worker(ConsumerProducerMixin):
 
     def get_consumers(self, Consumer, channel):
         return [Consumer(queues=self.queues,
-                         callbacks=[self.on_message])]
+                         on_message=self.on_message,
+                         accept='application/json']
 
     def on_message(self, body, message):
         message.ack()
         success = False
         start = time.clock()
         try:
-            receiver.run(json.loads(body))
+            receiver.run(body)
             success = True
         except Exception as e1:
             logger.exception(str(e1))
-            logger.error("Failed to process the exporter message:" + body + "due to error:" + str(e1))
+            logger.error(f"Failed to process the exporter message: {json.dumps(body)} due to error: {str(e1)}")
         if success:
+            logger.info(f"Notifying state tracker of completed bundle: {json.dumps(body)}")
+            self.producer.publish(
+                body,
+                exchange=EXCHANGE,
+                routing_key=ASSAY_COMPLETED_ROUTING_KEY
+            )
+            logger.info("Notified!")
             end = time.clock()
             time_to_export = end - start
             logger.info('Finished! ' + str(message.delivery_tag))
