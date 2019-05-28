@@ -35,7 +35,7 @@ class Worker(ConsumerProducerMixin):
 
     def get_consumers(self, Consumer, channel):
         return [Consumer(queues=self.queues,
-                         callbacks=[self.on_message], accept=['json'])]
+                         callbacks=[self.on_message], accept={'application/json'})]
 
     def on_message(self, body, message):
         message.ack()
