@@ -14,14 +14,13 @@ LOGGER = logging.getLogger(__name__)
 EXCHANGE = 'ingest.bundle.exchange'
 
 
-
 class IngestReceiver:
 
     def __init__(self):
         self.logger = LOGGER
 
     def run(self, message):
-        self.logger.info('message received ' + json.dumps(message))
+
         self.logger.info('process received ' + message["callbackLink"])
         self.logger.info('process index: ' + str(message["index"]) + ', total processes: ' + str(message["total"]))
 

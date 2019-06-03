@@ -24,53 +24,56 @@ ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
 
-logger = logging.getLogger(__name__)
-receiver = IngestReceiver()
-
 
 class Worker(ConsumerProducerMixin):
     def __init__(self, connection, queues):
         self.connection = connection
         self.queues = queues
+        self.logger = logging.getLogger(__name__)
+        self.receiver = IngestReceiver()
 
     def get_consumers(self, Consumer, channel):
         return [Consumer(queues=self.queues,
                          callbacks=[self.on_message])]
 
     def on_message(self, body, message):
+        self.logger.info(f'Message received: {body}')
+        self.logger.info('Ack-ing message...')
         message.ack()
+        self.logger.info('Acked!')
         success = False
         start = time.clock()
         try:
-            receiver.run(json.loads(body))
+            self.receiver.run(json.loads(body))
             success = True
         except Exception as e1:
-            logger.exception(str(e1))
-            logger.error(f"Failed to process the exporter message: {body} due to error: {str(e1)}")
+            self.logger.exception(str(e1))
+            self.logger.error(f"Failed to process the exporter message: {body} due to error: {str(e1)}")
+
         if success:
-            logger.info(f"Notifying state tracker of completed bundle: {body}")
+            self.logger.info(f"Notifying state tracker of completed bundle: {body}")
             self.producer.publish(
                 json.loads(body),
                 exchange=EXCHANGE,
-                routing_key=ASSAY_COMPLETED_ROUTING_KEY
+                routing_key=ASSAY_COMPLETED_ROUTING_KEY,
+                retry=True,
+                retry_policy={
+                    'interval_start': 0,
+                    'interval_step': 2,
+                    'interval_max': 30,
+                    'max_retries': 60
+                }
             )
-            logger.info("Notified!")
+            self.logger.info("Notified!")
             end = time.clock()
             time_to_export = end - start
-            logger.info('Finished! ' + str(message.delivery_tag))
-            logger.info('Export time (ms): ' + str(time_to_export * 1000))
+            self.logger.info('Finished! ' + str(message.delivery_tag))
+            self.logger.info('Export time (ms): ' + str(time_to_export * 1000))
 
 
 if __name__ == '__main__':
     format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:%(lineno)s %(funcName)s(): %(message)s'
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=format)
-
-    parser = OptionParser()
-    parser.add_option("-q", "--queue", help="name of the ingest queues to listen for submission")
-    parser.add_option("-r", "--rabbit", help="the URL to the Rabbit MQ messaging server")
-    parser.add_option("-l", "--log", help="the logging level", default='INFO')
-
-    (options, args) = parser.parse_args()
 
     bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
     bundle_queues = [Queue(ASSAY_QUEUE, bundle_exchange, routing_key=ASSAY_ROUTING_KEY),
