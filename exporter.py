@@ -61,24 +61,24 @@ if __name__ == '__main__':
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues,
                                                       publish_config=conf)
 
-    with Connection(DEFAULT_RABBIT_URL) as conn:
-        bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
-        bundle_queues = [
-            Queue(BUNDLE_UPDATE_QUEUE, bundle_exchange,
-                  routing_key=BUNDLE_UPDATE_ROUTING_KEY)]
-
-        upload_client = StagingApi()
-        dss_client = DssApi()
-        ingest_client = IngestApi()
-        bundle_update_service = BundleUpdateService(
-                staging_client=upload_client,
-                dss_client=dss_client,
-                ingest_client=ingest_client)
-
-        update_bundle_receiver = UpdateBundleReceiver(connection=conn,
-                                                      queues=bundle_queues,
-                                                      bundle_update_service=bundle_update_service,
-                                                      ingest_client=ingest_client)
+    # with Connection(DEFAULT_RABBIT_URL) as conn:
+    #     bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
+    #     bundle_queues = [
+    #         Queue(BUNDLE_UPDATE_QUEUE, bundle_exchange,
+    #               routing_key=BUNDLE_UPDATE_ROUTING_KEY)]
+    #
+    #     upload_client = StagingApi()
+    #     dss_client = DssApi()
+    #     ingest_client = IngestApi()
+    #     bundle_update_service = BundleUpdateService(
+    #             staging_client=upload_client,
+    #             dss_client=dss_client,
+    #             ingest_client=ingest_client)
+    #
+    #     update_bundle_receiver = UpdateBundleReceiver(connection=conn,
+    #                                                   queues=bundle_queues,
+    #                                                   bundle_update_service=bundle_update_service,
+    #                                                   ingest_client=ingest_client)
 
     create_process = Process(target=create_bundle_receiver.run)
     create_process.start()
