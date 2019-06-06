@@ -31,6 +31,8 @@ ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
 
 if __name__ == '__main__':
     logging.getLogger('receiver').setLevel(logging.INFO)
+    logging.getLogger('ingest').setLevel(logging.INFO)
+
     format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:' \
              '%(lineno)s %(funcName)s(): %(message)s'
     logging.basicConfig(stream=sys.stdout, level=logging.WARNING,
