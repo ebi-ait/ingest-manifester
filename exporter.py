@@ -52,10 +52,10 @@ if __name__ == '__main__':
             'routing_key': ASSAY_COMPLETED_ROUTING_KEY,
             'retry': True,
             'retry_policy': {
-                    'interval_start': 0,
-                    'interval_step': 2,
-                    'interval_max': 30,
-                    'max_retries': 60
+                'interval_start': 0,
+                'interval_step': 2,
+                'interval_max': 30,
+                'max_retries': 60
             }
         }
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues,
@@ -83,5 +83,6 @@ if __name__ == '__main__':
     create_process = Process(target=create_bundle_receiver.run)
     create_process.start()
 
-    update_process = Process(target=update_bundle_receiver.run)
-    update_process.start()
+    # TODO disable update for now
+    # update_process = Process(target=update_bundle_receiver.run)
+    # update_process.start()
