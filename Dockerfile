@@ -23,4 +23,4 @@ ENV DSS_API=http://dss.dev.data.humancellatlas.org
 ENV INGEST_API_KEY=key_not_set
 
 ENTRYPOINT ["python"]
-CMD ["run.py"]
+CMD ["exporter.py"]
