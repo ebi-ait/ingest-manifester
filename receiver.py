@@ -1,34 +1,127 @@
 import datetime
 import json
 import logging
-import os
+import time
 
 from ingest.exporter.ingestexportservice import IngestExporter
-
-DEFAULT_RABBIT_URL=os.path.expandvars(os.environ.get('RABBIT_URL', 'amqp://localhost:5672'))
-DEFAULT_QUEUE_NAME=os.environ.get('SUBMISSION_QUEUE_NAME', 'ingest.envelope.submitted.queue')
-LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
-              '-35s %(lineno) -5d: %(message)s')
-LOGGER = logging.getLogger(__name__)
-
-EXCHANGE = 'ingest.bundle.exchange'
+from kombu.mixins import ConsumerProducerMixin
 
 
-class IngestReceiver:
+class Worker(ConsumerProducerMixin):
+    def __init__(self, connection, queues):
+        self.connection = connection
+        self.queues = queues
 
-    def __init__(self):
-        self.logger = LOGGER
+    def get_consumers(self, Consumer, channel):
+        return [Consumer(queues=self.queues,
+                         callbacks=[self.on_message])]
 
-    def run(self, message):
 
-        self.logger.info('process received ' + message["callbackLink"])
-        self.logger.info('process index: ' + str(message["index"]) + ', total processes: ' + str(message["total"]))
+class BundleReceiver(Worker):
+    def notify_state_tracker(self, body_dict):
+        self.producer.publish(body_dict,
+                              exchange=self.publish_config.get('exchange'),
+                              routing_key=self.publish_config.get(
+                                  'routing_key'),
+                              retry=self.publish_config.get('retry', True),
+                              retry_policy=self.publish_config.get(
+                                  'retry_policy'))
+        self.logger.info("Notified!")
 
-        ingest_exporter = IngestExporter()
-        version_timestamp = datetime.datetime.strptime(message["versionTimestamp"], "%Y-%m-%dT%H:%M:%S.%fZ")
+    def _convert_timestamp(self, timestamp):
+        version_timestamp = datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
         bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
+        return bundle_version
 
-        ingest_exporter.export_bundle(bundle_uuid=message["bundleUuid"],
-                                      bundle_version=bundle_version,
-                                      submission_uuid=message["envelopeUuid"],
-                                      process_uuid=message["documentUuid"])
+
+class CreateBundleReceiver(BundleReceiver):
+    def __init__(self, connection, queues, publish_config):
+        self.connection = connection
+        self.queues = queues
+        self.logger = logging.getLogger(f'{__name__}.CreateBundleReceiver')
+        self.publish_config = publish_config
+        self.ingest_exporter = IngestExporter()
+
+    def run(self):
+        self.logger.info("Running CreateBundleReceiver")
+        super(CreateBundleReceiver, self).run()
+
+    def on_message(self, body, message):
+        self.logger.info(f'Message received: {body}')
+
+        self.logger.info('Ack-ing message...')
+        message.ack()
+        self.logger.info('Acked!')
+
+        success = False
+        start = time.perf_counter()
+        body_dict = json.loads(body)
+
+        try:
+            self.logger.info('process received ' + body_dict["callbackLink"])
+            self.logger.info('process index: ' + str(
+                    body_dict["index"]) + ', total processes: ' + str(
+                    body_dict["total"]))
+
+            bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
+
+            self.ingest_exporter.export_bundle(bundle_uuid=body_dict["bundleUuid"],
+                                          bundle_version=bundle_version,
+                                          submission_uuid=body_dict["envelopeUuid"],
+                                          process_uuid=body_dict["documentUuid"])
+            success = True
+        except Exception as e1:
+            self.logger.exception(str(e1))
+            self.logger.error(f"Failed to process the exporter message: {body} due to error: {str(e1)}")
+
+        if success:
+            self.logger.info(f"Notifying state tracker of completed bundle: {body}")
+            self.notify_state_tracker(body_dict)
+            end = time.perf_counter()
+            time_to_export = end - start
+            self.logger.info('Finished! ' + str(message.delivery_tag))
+            self.logger.info('Export time (ms): ' + str(time_to_export))
+
+
+class UpdateBundleReceiver(BundleReceiver):
+    def __init__(self, connection, queues, bundle_update_service, ingest_client):
+        self.connection = connection
+        self.queues = queues
+        self.logger = logging.getLogger(f'{__name__}.UpdateBundleReceiver')
+        self.bundle_update_service = bundle_update_service
+        self.ingest_client = ingest_client
+
+    def run(self):
+        self.logger.info("Running UpdateBundleReceiver")
+        super(UpdateBundleReceiver, self).run()
+
+    def on_message(self, body, message):
+        self.logger.info(f'Message received: {body}')
+
+        self.logger.info('Ack-ing message...')
+        message.ack()
+        self.logger.info('Acked!')
+
+        body_dict = json.loads(body)
+        submission = self.ingest_client.getSubmissionByUuid(body_dict.get('envelopeUuid'))
+        bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
+        success = False
+        start = time.perf_counter()
+
+        try:
+            self.bundle_update_service.update_bundle(update_submission=submission,
+                                                     bundle_uuid=body_dict.get('bundleUuid'),
+                                                     updated_bundle_version=bundle_version,
+                                                     metadata_callbacks_to_update=body_dict.get('callbackLinks'))
+            success = True
+        except Exception as e1:
+            self.logger.exception(str(e1))
+            self.logger.error(f"Failed to process the exporter message: {body} due to error: {str(e1)}")
+
+        if success:
+            self.logger.info(f"Notifying state tracker of completed bundle: {body}")
+            self.notify_state_tracker(body_dict)
+            end = time.perf_counter()
+            time_to_export = end - start
+            self.logger.info('Finished! ' + str(message.delivery_tag))
+            self.logger.info('Export time (ms): ' + str(time_to_export))
