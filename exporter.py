@@ -24,8 +24,8 @@ ANALYSIS_QUEUE = 'ingest.bundle.analysis.create'
 ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
-BUNDLE_UPDATE_QUEUE = 'ingest.bundle.assay.update'
-BUNDLE_UPDATE_ROUTING_KEY = 'ingest.bundle.assay.update'
+BUNDLE_UPDATE_QUEUE = 'ingest.bundle.update.submitted'
+BUNDLE_UPDATE_ROUTING_KEY = 'ingest.bundle.update.submitted'
 
 ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
 
