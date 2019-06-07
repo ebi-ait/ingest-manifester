@@ -6,7 +6,7 @@ import logging
 from ingest.api.dssapi import DssApi
 from ingest.api.ingestapi import IngestApi
 from ingest.api.stagingapi import StagingApi
-from ingest.exporter.bundle_update_service import BundleUpdateService
+# from ingest.exporter.bundle_update_service import BundleUpdateService
 from kombu import Connection, Exchange, Queue
 from multiprocessing import Process
 
