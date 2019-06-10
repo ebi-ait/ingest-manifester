@@ -11,9 +11,12 @@ from ingest.exporter.exporter import Exporter
 from ingest.exporter.metadata import MetadataService
 from ingest.exporter.staging import StagingService
 from kombu import Connection, Exchange, Queue
-from multiprocessing import Process
+from multiprocessing.dummy import Process
 
 from receiver import CreateBundleReceiver, UpdateBundleReceiver
+
+DISABLE_BUNDLE_CREATE = os.environ.get('DISABLE_BUNDLE_CREATE', False)
+DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
 
 DEFAULT_RABBIT_URL = os.path.expandvars(
     os.environ.get('RABBIT_URL', 'amqp://localhost:5672'))
@@ -35,6 +38,7 @@ ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
 if __name__ == '__main__':
     logging.getLogger('receiver').setLevel(logging.INFO)
     logging.getLogger('ingest').setLevel(logging.INFO)
+    logging.getLogger('ingest.api.dssapi').setLevel(logging.DEBUG)
 
     format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:' \
              '%(lineno)s %(funcName)s(): %(message)s'
@@ -86,10 +90,10 @@ if __name__ == '__main__':
                                                       queues=bundle_queues,
                                                       exporter=exporter,
                                                       ingest_client=ingest_client)
+    if not DISABLE_BUNDLE_CREATE:
+        create_process = Process(target=create_bundle_receiver.run)
+        create_process.start()
 
-    create_process = Process(target=create_bundle_receiver.run)
-    create_process.start()
-
-    # TODO disable update for now
-    update_process = Process(target=update_bundle_receiver.run)
-    update_process.start()
+    if not DISABLE_BUNDLE_UPDATE:
+        update_process = Process(target=update_bundle_receiver.run)
+        update_process.start()
