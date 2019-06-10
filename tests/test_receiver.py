@@ -105,7 +105,7 @@ class TestReceiver(TestCase):
                 "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
         bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
         bundle_update_service = MagicMock('bundle_update_service')
-        bundle_update_service.update_bundle = Mock()
+        bundle_update_service.export_update = Mock()
         ingest_client = MagicMock('ingest_client')
         ingest_client.getSubmissionByUuid = Mock()
         update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(), bundle_update_service, ingest_client)
@@ -118,6 +118,6 @@ class TestReceiver(TestCase):
         update_receiver.on_message(body, message)
 
         # then
-        bundle_update_service.update_bundle.assert_called_once()
+        bundle_update_service.export_update.assert_called_once()
         message.ack.assert_called_once()
         update_receiver.notify_state_tracker.assert_called_with(json.loads(body))
