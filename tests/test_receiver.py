@@ -1,9 +1,8 @@
 import datetime
 import json
+
 from unittest import TestCase
-
 from mock import MagicMock, Mock, mock, patch
-
 from receiver import CreateBundleReceiver, UpdateBundleReceiver
 
 

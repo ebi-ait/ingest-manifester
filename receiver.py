@@ -19,13 +19,10 @@ class Worker(ConsumerProducerMixin):
 
 class BundleReceiver(Worker):
     def notify_state_tracker(self, body_dict):
-        self.producer.publish(body_dict,
-                              exchange=self.publish_config.get('exchange'),
-                              routing_key=self.publish_config.get(
-                                  'routing_key'),
+        self.producer.publish(body_dict, exchange=self.publish_config.get('exchange'),
+                              routing_key=self.publish_config.get('routing_key'),
                               retry=self.publish_config.get('retry', True),
-                              retry_policy=self.publish_config.get(
-                                  'retry_policy'))
+                              retry_policy=self.publish_config.get('retry_policy'))
         self.logger.info("Notified!")
 
     def _convert_timestamp(self, timestamp):
@@ -66,9 +63,9 @@ class CreateBundleReceiver(BundleReceiver):
             bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
 
             self.ingest_exporter.export_bundle(bundle_uuid=body_dict["bundleUuid"],
-                                          bundle_version=bundle_version,
-                                          submission_uuid=body_dict["envelopeUuid"],
-                                          process_uuid=body_dict["documentUuid"])
+                                               bundle_version=bundle_version,
+                                               submission_uuid=body_dict["envelopeUuid"],
+                                               process_uuid=body_dict["documentUuid"])
             success = True
         except Exception as e1:
             self.logger.exception(str(e1))
@@ -84,11 +81,11 @@ class CreateBundleReceiver(BundleReceiver):
 
 
 class UpdateBundleReceiver(BundleReceiver):
-    def __init__(self, connection, queues, bundle_update_service, ingest_client):
+    def __init__(self, connection, queues, exporter, ingest_client):
         self.connection = connection
         self.queues = queues
         self.logger = logging.getLogger(f'{__name__}.UpdateBundleReceiver')
-        self.bundle_update_service = bundle_update_service
+        self.exporter = exporter
         self.ingest_client = ingest_client
 
     def run(self):
@@ -109,10 +106,10 @@ class UpdateBundleReceiver(BundleReceiver):
         start = time.perf_counter()
 
         try:
-            self.bundle_update_service.update_bundle(update_submission=submission,
-                                                     bundle_uuid=body_dict.get('bundleUuid'),
-                                                     updated_bundle_version=bundle_version,
-                                                     metadata_callbacks_to_update=body_dict.get('callbackLinks'))
+            self.exporter.export_update(update_submission=submission,
+                                        bundle_uuid=body_dict.get('bundleUuid'),
+                                        update_version=bundle_version,
+                                        metadata_urls=body_dict.get('callbackLinks'))
             success = True
         except Exception as e1:
             self.logger.exception(str(e1))
