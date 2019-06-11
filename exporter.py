@@ -35,6 +35,13 @@ BUNDLE_UPDATE_ROUTING_KEY = 'ingest.bundle.update.submitted'
 
 ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
 
+RETRY_POLICY = {
+    'interval_start': 0,
+    'interval_step': 2,
+    'interval_max': 30,
+    'max_retries': 60
+}
+
 if __name__ == '__main__':
     logging.getLogger('receiver').setLevel(logging.INFO)
     logging.getLogger('ingest').setLevel(logging.INFO)
@@ -58,12 +65,7 @@ if __name__ == '__main__':
             'exchange': EXCHANGE,
             'routing_key': ASSAY_COMPLETED_ROUTING_KEY,
             'retry': True,
-            'retry_policy': {
-                'interval_start': 0,
-                'interval_step': 2,
-                'interval_max': 30,
-                'max_retries': 60
-            }
+            'retry_policy': RETRY_POLICY
         }
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues,
                                                       publish_config=conf)
@@ -86,10 +88,17 @@ if __name__ == '__main__':
                             bundle_service=bundle_service,
                             staging_service=staging_service)
 
+        conf = {
+            'exchange': EXCHANGE,
+            'routing_key': ASSAY_COMPLETED_ROUTING_KEY,
+            'retry': True,
+            'retry_policy': RETRY_POLICY
+        }
         update_bundle_receiver = UpdateBundleReceiver(connection=conn,
                                                       queues=bundle_queues,
                                                       exporter=exporter,
-                                                      ingest_client=ingest_client)
+                                                      ingest_client=ingest_client,
+                                                      publish_config=conf)
     if not DISABLE_BUNDLE_CREATE:
         create_process = Process(target=create_bundle_receiver.run)
         create_process.start()

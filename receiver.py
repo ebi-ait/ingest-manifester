@@ -81,12 +81,13 @@ class CreateBundleReceiver(BundleReceiver):
 
 
 class UpdateBundleReceiver(BundleReceiver):
-    def __init__(self, connection, queues, exporter, ingest_client):
+    def __init__(self, connection, queues, exporter, ingest_client, publish_config):
         self.connection = connection
         self.queues = queues
         self.logger = logging.getLogger(f'{__name__}.UpdateBundleReceiver')
         self.exporter = exporter
         self.ingest_client = ingest_client
+        self.publish_config = publish_config
 
     def run(self):
         self.logger.info("Running UpdateBundleReceiver")
