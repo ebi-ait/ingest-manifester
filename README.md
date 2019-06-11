@@ -13,3 +13,12 @@ pip install -r requirements.txt
 ```
 python exporter.py
 ```
+
+# testing
+```
+pip install -r requirements-dev.txt
+```
+
+```
+pip -m  unittest discover -s tests
+```

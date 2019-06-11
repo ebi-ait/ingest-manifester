@@ -9,7 +9,7 @@ from receiver import CreateBundleReceiver, UpdateBundleReceiver
 class TestReceiver(TestCase):
 
     @patch('ingest.exporter.ingestexportservice.IngestExporter.export_bundle')
-    def test_create_bundle_receiver_on_mesage(self, mock_export_bundle):
+    def test_create_bundle_receiver_on_message(self, mock_export_bundle):
         # given
         conf = {'exchange': 'exchange', 'routing_key': 'routing_key', 'retry_policy': {}}
 
@@ -48,7 +48,7 @@ class TestReceiver(TestCase):
         message.ack.assert_called_once()
 
     @patch('ingest.exporter.ingestexportservice.IngestExporter.export_bundle')
-    def test_create_bundle_receiver_on_mesage_exception(self, mock_export_bundle):
+    def test_create_bundle_receiver_on_message_exception(self, mock_export_bundle):
         # given
         conf = {'exchange': 'exchange', 'routing_key': 'routing_key', 'retry_policy': {}}
 
@@ -89,7 +89,7 @@ class TestReceiver(TestCase):
         message.ack.assert_called_once()
         create_receiver.notify_state_tracker.assert_not_called()
 
-    def test_update_bundle_receiver_on_mesage(self):
+    def test_update_bundle_receiver_on_message(self):
         # given
         body = '''{
                 "bundleUuid": "72de15ec-93fa-4421-b01e-59a4f9b32b46",
