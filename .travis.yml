@@ -1,0 +1,23 @@
+language: python
+python:
+- '3.6'
+install:
+- pip install -r requirements-dev.txt
+- pip list
+before_script:
+- curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64
+  > ./cc-test-reporter
+- chmod +x ./cc-test-reporter
+- "./cc-test-reporter before-build"
+script:
+- nosetests --with-coverage --cover-package=exporter,receiver --cover-erase --cover-xml
+after_script:
+- "./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT"
+after_success:
+- bash <(curl -s https://codecov.io/bash)
+notifications:
+  slack:
+    secure: amAAgBQ+52kh7DDcU8gEhfaqQAmiiGhulVoGhTqmmp1SlhBnR14wMqWs0S43LLwXgcIgdQf65Vg+6gATpsSGyartB1pMI7xkilHKkQbBzIJfOh+6jixeBXaTy/9FW7G7tc0PoVXDXjdm0868CDh+2eo4sIbvIjJQyC7mSmswEUuvtE84v5ULIVMYET9m9TXAkbcbhaQuLNZTyyIerEw4/MzjsVACcuh3QM+YZI6WcbZn9KMij4oSf27UW0sO4opynKswNcYlHV4F4x6CKvo/HmRA1MUefmJPFilC+dBE+m0nDz7hf28illDWxJ9YUCPICywYygSmTgDlVNVOfprJorJ1SIlcfMEbq+96BsOusxouKsXyexAjEx5/IbH0uyk8d7LZC5g39xtv0V+DdiGc0V/hDZWZzW5AX4iUkatBqb8LXdtVcXMSClZ8cAvokkxruw9GmRoV/WW1SE63N0rOh3vFuWdzovi4kS9+eOXak7JlYh45f8Jz0SadQOjIfvgEZmNmpyAHyh0k3d8hvWhXGoqtb1otJvzrYKjII/EBgxEhfsBQGKwlTPbhcBKIDE6gWbN1okD/HAWh8Wjwe1AptmOjGM4qfTasIcsi+J4uWfOsUF0P2ihqO0gt2aHiQPOENrg/4n93VCSw3pTN9x9juglu4xRrtylWaguoSeAWS/o=
+env:
+  global:
+  - CC_TEST_REPORTER_ID=c74b69eba87b968635a422f2452454a2819e23726821b9f2fe9747e54cdb425e

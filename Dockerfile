@@ -10,7 +10,7 @@ RUN apk update && \
 RUN mkdir /app
 WORKDIR /app
 
-COPY export-to-dss.py receiver.py  requirements.txt ./
+COPY exporter.py receiver.py  requirements.txt ./
 
 RUN pip install -r requirements.txt
 
@@ -23,4 +23,4 @@ ENV DSS_API=http://dss.dev.data.humancellatlas.org
 ENV INGEST_API_KEY=key_not_set
 
 ENTRYPOINT ["python"]
-CMD ["export-to-dss.py"]
+CMD ["exporter.py"]
