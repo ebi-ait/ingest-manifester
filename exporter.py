@@ -8,6 +8,7 @@ from ingest.api.ingestapi import IngestApi
 from ingest.api.stagingapi import StagingApi
 from ingest.exporter.bundle import BundleService
 from ingest.exporter.exporter import Exporter
+from ingest.exporter.ingestexportservice import IngestExporter
 from ingest.exporter.metadata import MetadataService
 from ingest.exporter.staging import StagingService
 from ingest.utils.s2s_token_client import S2STokenClient
@@ -54,6 +55,15 @@ if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.WARNING,
                         format=format)
 
+    upload_client = StagingApi()
+    dss_client = DssApi()
+
+    s2s_token_client = S2STokenClient()
+    gcp_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    s2s_token_client.setup_from_file(gcp_credentials_file)
+    token_manager = TokenManager(token_client=s2s_token_client)
+    ingest_client = IngestApi(token_manager=token_manager)
+
     with Connection(DEFAULT_RABBIT_URL) as conn:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
         bundle_queues = [
@@ -69,6 +79,7 @@ if __name__ == '__main__':
             'retry': True,
             'retry_policy': RETRY_POLICY
         }
+        exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_api=upload_client)
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues,
                                                       publish_config=conf)
 
@@ -77,15 +88,6 @@ if __name__ == '__main__':
         bundle_queues = [
             Queue(BUNDLE_UPDATE_QUEUE, bundle_exchange,
                   routing_key=BUNDLE_UPDATE_ROUTING_KEY)]
-
-        upload_client = StagingApi()
-        dss_client = DssApi()
-
-        s2s_token_client = S2STokenClient()
-        gcp_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-        s2s_token_client.setup_from_file(gcp_credentials_file)
-        token_manager = TokenManager(token_client=s2s_token_client)
-        ingest_client = IngestApi(token_manager=token_manager)
 
         metadata_service = MetadataService(ingest_client=ingest_client)
         bundle_service = BundleService(dss_client=dss_client)

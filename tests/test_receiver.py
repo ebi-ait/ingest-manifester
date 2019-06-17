@@ -38,10 +38,11 @@ class TestReceiver(TestCase):
             "messageProtocol": null
         }'''
 
-    @patch('ingest.exporter.ingestexportservice.IngestExporter.export_bundle')
-    def test_create_bundle_receiver_on_message(self, mock_export_bundle):
+    def test_create_bundle_receiver_on_message(self):
+        mock_exporter = MagicMock()
+        mock_exporter.export_bundle = Mock()
         # given
-        create_receiver = CreateBundleReceiver(MagicMock(), MagicMock(), self.publish_config)
+        create_receiver = CreateBundleReceiver(MagicMock(), MagicMock(), mock_exporter, self.publish_config)
         version_timestamp = datetime.datetime.strptime(
             "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
         bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
@@ -53,7 +54,7 @@ class TestReceiver(TestCase):
         create_receiver.on_message(self.create_message_body, message)
 
         # then
-        mock_export_bundle.assert_called_with(bundle_uuid='bundle-uuid',
+        mock_exporter.export_bundle.assert_called_with(bundle_uuid='bundle-uuid',
                                               bundle_version=bundle_version,
                                               submission_uuid='submission-uuid',
                                               process_uuid='doc-uuid')
@@ -62,25 +63,30 @@ class TestReceiver(TestCase):
 
         message.ack.assert_called_once()
 
-    @patch('ingest.exporter.ingestexportservice.IngestExporter.export_bundle')
-    def test_create_bundle_receiver_on_message_exception(self, mock_export_bundle):
+    def test_create_bundle_receiver_on_message_exception(self):
         # given
-        create_receiver = CreateBundleReceiver(MagicMock(), MagicMock(), self.publish_config)
+        mock_exporter = MagicMock()
+        mock_exporter.export_bundle = Mock()
+
         version_timestamp = datetime.datetime.strptime(
             "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
         bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
 
         message = MagicMock(name='message')
         message.ack = Mock()
+        create_receiver = CreateBundleReceiver(MagicMock(), MagicMock(),
+                                               mock_exporter,
+                                               self.publish_config)
+
         create_receiver.notify_state_tracker = Mock()
 
         # when
-        mock_export_bundle.side_effect = Exception('unhandled exception')
+        mock_exporter.export_bundle.side_effect = Exception('unhandled exception')
 
         create_receiver.on_message(self.create_message_body, message)
 
         # then
-        mock_export_bundle.assert_called_with(bundle_uuid='bundle-uuid',
+        mock_exporter.export_bundle.assert_called_with(bundle_uuid='bundle-uuid',
                                               bundle_version=bundle_version,
                                               submission_uuid='submission-uuid',
                                               process_uuid='doc-uuid')

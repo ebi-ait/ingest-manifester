@@ -32,12 +32,12 @@ class BundleReceiver(Worker):
 
 
 class CreateBundleReceiver(BundleReceiver):
-    def __init__(self, connection, queues, publish_config):
+    def __init__(self, connection, queues, exporter, publish_config):
         self.connection = connection
         self.queues = queues
         self.logger = logging.getLogger(f'{__name__}.CreateBundleReceiver')
         self.publish_config = publish_config
-        self.ingest_exporter = IngestExporter()
+        self.ingest_exporter = exporter
 
     def run(self):
         self.logger.info("Running CreateBundleReceiver")
