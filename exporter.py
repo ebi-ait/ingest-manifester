@@ -10,6 +10,8 @@ from ingest.exporter.bundle import BundleService
 from ingest.exporter.exporter import Exporter
 from ingest.exporter.metadata import MetadataService
 from ingest.exporter.staging import StagingService
+from ingest.utils.s2s_token_client import S2STokenClient
+from ingest.utils.token_manager import TokenManager
 from kombu import Connection, Exchange, Queue
 from multiprocessing.dummy import Process
 
@@ -78,7 +80,12 @@ if __name__ == '__main__':
 
         upload_client = StagingApi()
         dss_client = DssApi()
-        ingest_client = IngestApi()
+
+        s2s_token_client = S2STokenClient()
+        gcp_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+        s2s_token_client.setup_from_file(gcp_credentials_file)
+        token_manager = TokenManager(token_client=s2s_token_client)
+        ingest_client = IngestApi(token_manager=token_manager)
 
         metadata_service = MetadataService(ingest_client=ingest_client)
         bundle_service = BundleService(dss_client=dss_client)
