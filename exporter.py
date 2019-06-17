@@ -84,9 +84,8 @@ if __name__ == '__main__':
         bundle_service = BundleService(dss_client=dss_client)
         staging_service = StagingService(staging_client=upload_client)
 
-        exporter = Exporter(metadata_service=metadata_service,
-                            bundle_service=bundle_service,
-                            staging_service=staging_service)
+        exporter = Exporter(ingest_client=ingest_client, metadata_service=metadata_service,
+                            bundle_service=bundle_service, staging_service=staging_service)
 
         conf = {
             'exchange': EXCHANGE,
