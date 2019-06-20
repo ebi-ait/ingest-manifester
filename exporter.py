@@ -80,7 +80,7 @@ if __name__ == '__main__':
             'retry_policy': RETRY_POLICY
         }
         exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_api=upload_client)
-        create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues,
+        create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter,
                                                       publish_config=conf)
 
     with Connection(DEFAULT_RABBIT_URL) as conn:
