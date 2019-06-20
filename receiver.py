@@ -3,6 +3,7 @@ import json
 import logging
 import time
 
+from ingest.api.ingestapi import IngestApi
 from ingest.exporter.ingestexportservice import IngestExporter
 from kombu.mixins import ConsumerProducerMixin
 
@@ -81,7 +82,7 @@ class CreateBundleReceiver(BundleReceiver):
 
 
 class UpdateBundleReceiver(BundleReceiver):
-    def __init__(self, connection, queues, exporter, ingest_client, publish_config):
+    def __init__(self, connection, queues, exporter, ingest_client: IngestApi, publish_config):
         self.connection = connection
         self.queues = queues
         self.logger = logging.getLogger(f'{__name__}.UpdateBundleReceiver')
@@ -101,7 +102,7 @@ class UpdateBundleReceiver(BundleReceiver):
         self.logger.info('Acked!')
 
         body_dict = json.loads(body)
-        submission = self.ingest_client.getSubmissionByUuid(body_dict.get('envelopeUuid'))
+        submission = self.ingest_client.get_submission_by_uuid(body_dict.get('envelopeUuid'))
         bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
         success = False
         start = time.perf_counter()
