@@ -102,7 +102,7 @@ class TestReceiver(TestCase):
         exporter = MagicMock('exporter')
         exporter.export_update = Mock()
         ingest_client = MagicMock('ingest_client')
-        ingest_client.getSubmissionByUuid = Mock(return_value={'submission-uuid': 'uuid'})
+        ingest_client.get_submission_by_uuid = Mock(return_value={'submission-uuid': 'uuid'})
         update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(), exporter, ingest_client, self.publish_config)
 
         message = MagicMock(name='message')
@@ -131,7 +131,7 @@ class TestReceiver(TestCase):
         bundle_update_service.export_update = Mock()
         bundle_update_service.export_update.side_effect = Exception('unhandled exception')
         ingest_client = MagicMock('ingest_client')
-        ingest_client.getSubmissionByUuid = Mock()
+        ingest_client.get_submission_by_uuid = Mock()
         update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(),
                                                bundle_update_service,
                                                ingest_client, self.publish_config)
