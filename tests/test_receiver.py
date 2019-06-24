@@ -99,8 +99,14 @@ class TestReceiver(TestCase):
         version_timestamp = datetime.datetime.strptime(
                 "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
         bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
+
         exporter = MagicMock('exporter')
+        exporter.bundle_service = MagicMock()
+        exporter.bundle_service.dss_client = MagicMock()
+        exporter.bundle_service.dss_client.init_dss_client = MagicMock(
+            'bundle_service')
         exporter.export_update = Mock()
+
         ingest_client = MagicMock('ingest_client')
         ingest_client.get_submission_by_uuid = Mock(return_value={'submission-uuid': 'uuid'})
         update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(), exporter, ingest_client, self.publish_config)
@@ -127,13 +133,16 @@ class TestReceiver(TestCase):
         version_timestamp = datetime.datetime.strptime(
                 "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
         bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
-        bundle_update_service = MagicMock('bundle_update_service')
-        bundle_update_service.export_update = Mock()
-        bundle_update_service.export_update.side_effect = Exception('unhandled exception')
+        exporter = MagicMock('exporter')
+        exporter.bundle_service = MagicMock()
+        exporter.bundle_service.dss_client = MagicMock()
+        exporter.bundle_service.dss_client.init_dss_client = MagicMock('bundle_service')
+        exporter.export_update = Mock()
+        exporter.export_update.side_effect = Exception('unhandled exception')
         ingest_client = MagicMock('ingest_client')
         ingest_client.get_submission_by_uuid = Mock()
         update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(),
-                                               bundle_update_service,
+                                               exporter,
                                                ingest_client, self.publish_config)
 
         message = MagicMock(name='message')
@@ -144,6 +153,6 @@ class TestReceiver(TestCase):
         update_receiver.on_message(self.update_message_body, message)
 
         # then
-        bundle_update_service.export_update.assert_called_once()
+        exporter.export_update.assert_called_once()
         message.ack.assert_called_once()
         update_receiver.notify_state_tracker.assert_not_called()
