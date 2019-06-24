@@ -97,7 +97,7 @@ class UpdateBundleReceiver(BundleReceiver):
         super(UpdateBundleReceiver, self).run()
 
     def on_message(self, body, message):
-        self.exporter.bundle_service.dss_client.init_dss_client() # TODO workaround to fix expiration of signature when using DSS client
+        self.exporter.bundle_service.dss_client.init_dss_client() # TODO workaround for issue https://app.zenhub.com/workspaces/dcp-5ac7bcf9465cb172b77760d9/issues/humancellatlas/data-store/2216
         self.logger.info(f'Message received: {body}')
 
         self.logger.info('Ack-ing message...')
