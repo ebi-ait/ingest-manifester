@@ -111,10 +111,8 @@ class UpdateBundleReceiver(BundleReceiver):
         start = time.perf_counter()
 
         try:
-            self.exporter.export_update(update_submission=submission,
-                                        bundle_uuid=body_dict.get('bundleUuid'),
-                                        update_version=bundle_version,
-                                        metadata_urls=body_dict.get('callbackLinks'))
+            self.exporter.export_update(submission, body_dict.get('bundleUuid'),
+                                        body_dict.get('callbackLinks'), bundle_version)
             success = True
         except Exception as e1:
             self.logger.exception(str(e1))

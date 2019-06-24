@@ -119,11 +119,8 @@ class TestReceiver(TestCase):
         update_receiver.on_message(self.update_message_body, message)
 
         # then
-        exporter.export_update.assert_called_with(
-                                        update_submission={'submission-uuid': 'uuid'},
-                                        bundle_uuid='bundle-uuid',
-                                        update_version=bundle_version,
-                                        metadata_urls=["/link1", "/link1"])
+        exporter.export_update.assert_called_with({'submission-uuid': 'uuid'}, 'bundle-uuid',
+                                                  ["/link1", "/link1"], bundle_version)
 
         message.ack.assert_called_once()
         update_receiver.notify_state_tracker.assert_called_with(json.loads(self.update_message_body))
