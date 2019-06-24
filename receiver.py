@@ -4,6 +4,7 @@ import logging
 import time
 
 from ingest.api.ingestapi import IngestApi
+from ingest.exporter.exporter import Exporter
 from ingest.exporter.ingestexportservice import IngestExporter
 from kombu.mixins import ConsumerProducerMixin
 
@@ -33,18 +34,19 @@ class BundleReceiver(Worker):
 
 
 class CreateBundleReceiver(BundleReceiver):
-    def __init__(self, connection, queues, exporter, publish_config):
+    def __init__(self, connection, queues, exporter: IngestExporter, publish_config):
         self.connection = connection
         self.queues = queues
         self.logger = logging.getLogger(f'{__name__}.CreateBundleReceiver')
         self.publish_config = publish_config
-        self.ingest_exporter = exporter
+        self.exporter = exporter
 
     def run(self):
         self.logger.info("Running CreateBundleReceiver")
         super(CreateBundleReceiver, self).run()
 
     def on_message(self, body, message):
+        self.exporter.dss_api.init_dss_client()  # TODO workaround to fix expiration of signature when using DSS client
         self.logger.info(f'Message received: {body}')
 
         self.logger.info('Ack-ing message...')
@@ -63,10 +65,10 @@ class CreateBundleReceiver(BundleReceiver):
 
             bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
 
-            self.ingest_exporter.export_bundle(bundle_uuid=body_dict["bundleUuid"],
-                                               bundle_version=bundle_version,
-                                               submission_uuid=body_dict["envelopeUuid"],
-                                               process_uuid=body_dict["documentUuid"])
+            self.exporter.export_bundle(bundle_uuid=body_dict["bundleUuid"],
+                                        bundle_version=bundle_version,
+                                        submission_uuid=body_dict["envelopeUuid"],
+                                        process_uuid=body_dict["documentUuid"])
             success = True
         except Exception as e1:
             self.logger.exception(str(e1))
@@ -82,7 +84,7 @@ class CreateBundleReceiver(BundleReceiver):
 
 
 class UpdateBundleReceiver(BundleReceiver):
-    def __init__(self, connection, queues, exporter, ingest_client: IngestApi, publish_config):
+    def __init__(self, connection, queues, exporter: Exporter, ingest_client: IngestApi, publish_config):
         self.connection = connection
         self.queues = queues
         self.logger = logging.getLogger(f'{__name__}.UpdateBundleReceiver')
@@ -95,6 +97,7 @@ class UpdateBundleReceiver(BundleReceiver):
         super(UpdateBundleReceiver, self).run()
 
     def on_message(self, body, message):
+        self.exporter.bundle_service.dss_client.init_dss_client() # TODO workaround to fix expiration of signature when using DSS client
         self.logger.info(f'Message received: {body}')
 
         self.logger.info('Ack-ing message...')
