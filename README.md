@@ -23,5 +23,5 @@ pip install -r requirements-dev.txt
 ```
 
 ```
-pip -m  unittest discover -s tests
+nosetests
 ```
