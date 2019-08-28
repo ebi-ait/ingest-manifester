@@ -84,8 +84,7 @@ if __name__ == '__main__':
         }
 
         exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_service=staging_service)
-        create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter,
-                                                      publish_config=conf)
+        create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
 
     with Connection(DEFAULT_RABBIT_URL) as conn:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
@@ -95,10 +94,9 @@ if __name__ == '__main__':
 
         metadata_service = MetadataService(ingest_client=ingest_client)
         bundle_service = BundleService(dss_client=dss_client)
-        staging_service = StagingService(staging_client=upload_client)
 
-        exporter = Exporter(ingest_api=ingest_client, metadata_service=metadata_service,
-                            bundle_service=bundle_service, staging_service=staging_service)
+        exporter = Exporter(ingest_api=ingest_client, metadata_service=metadata_service, bundle_service=bundle_service,
+                            staging_service=staging_service)
 
         conf = {
             'exchange': EXCHANGE,
@@ -106,11 +104,8 @@ if __name__ == '__main__':
             'retry': True,
             'retry_policy': RETRY_POLICY
         }
-        update_bundle_receiver = UpdateBundleReceiver(connection=conn,
-                                                      queues=bundle_queues,
-                                                      exporter=exporter,
-                                                      ingest_client=ingest_client,
-                                                      publish_config=conf)
+        update_bundle_receiver = UpdateBundleReceiver(connection=conn, queues=bundle_queues, exporter=exporter,
+                                                      ingest_client=ingest_client, publish_config=conf)
     if not DISABLE_BUNDLE_CREATE:
         create_process = Process(target=create_bundle_receiver.run)
         create_process.start()
