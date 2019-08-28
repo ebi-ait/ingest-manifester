@@ -10,7 +10,7 @@ from ingest.exporter.bundle import BundleService
 from ingest.exporter.exporter import Exporter
 from ingest.exporter.ingestexportservice import IngestExporter
 from ingest.exporter.metadata import MetadataService
-from ingest.exporter.staging import StagingService
+from ingest.exporter.staging import StagingService, StagingInfoRepository
 from ingest.utils.s2s_token_client import S2STokenClient
 from ingest.utils.token_manager import TokenManager
 from kombu import Connection, Exchange, Queue
@@ -64,6 +64,9 @@ if __name__ == '__main__':
     token_manager = TokenManager(token_client=s2s_token_client)
     ingest_client = IngestApi(token_manager=token_manager)
 
+    staging_info_repository = StagingInfoRepository(ingest_client)
+    staging_service = StagingService(upload_client, staging_info_repository)
+
     with Connection(DEFAULT_RABBIT_URL) as conn:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
         bundle_queues = [
@@ -79,7 +82,8 @@ if __name__ == '__main__':
             'retry': True,
             'retry_policy': RETRY_POLICY
         }
-        exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_api=upload_client)
+
+        exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_service=staging_service)
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter,
                                                       publish_config=conf)
 
