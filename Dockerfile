@@ -10,9 +10,10 @@ RUN apk update && \
 RUN mkdir /app
 WORKDIR /app
 
-COPY exporter.py receiver.py  requirements.txt ./
-
+COPY requirements.txt ./
 RUN pip install -r requirements.txt
+
+COPY exporter.py receiver.py ./
 
 ENV INGEST_API=http://localhost:8080
 ENV RABBIT_URL=amqp://localhost:5672
