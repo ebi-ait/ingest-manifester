@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from mock import Mock
 
-from ingest.exporter.metadata import MetadataResource, MetadataService, MetadataParseException, MetadataProvenance
+from exporter.metadata import MetadataResource, MetadataService, MetadataParseException, MetadataProvenance
 
 
 class MetadataResourceTest(TestCase):

@@ -8,8 +8,8 @@ from requests import HTTPError
 
 from ingest.api.ingestapi import IngestApi
 from ingest.api.stagingapi import StagingApi, FileUploadFailed
-from ingest.exporter.exceptions import FileDuplication
-from ingest.exporter.metadata import MetadataResource
+from exporter.exceptions import FileDuplication
+from exporter.metadata import MetadataResource
 
 logger = logging.getLogger(__name__)
 

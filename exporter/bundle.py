@@ -2,7 +2,7 @@ import re
 
 from ingest.api import utils
 from ingest.api.dssapi import DssApi
-from ingest.exporter.metadata import MetadataResource
+from exporter.metadata import MetadataResource
 
 _BUNDLE_FILE_TYPE_DATA = 'data'
 _BUNDLE_FILE_TYPE_LINKS = 'links'

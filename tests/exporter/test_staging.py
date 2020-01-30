@@ -6,10 +6,10 @@ from mock import Mock, MagicMock
 from requests import HTTPError
 
 from ingest.api.stagingapi import FileDescription, FileUploadFailed
-from ingest.exporter import staging
-from ingest.exporter.exceptions import FileDuplication
-from ingest.exporter.metadata import MetadataResource, MetadataProvenance
-from ingest.exporter.staging import StagingInfo, StagingService, StagingInfoRepository, PartialStagingInfo, \
+from exporter import staging
+from exporter.exceptions import FileDuplication
+from exporter.metadata import MetadataResource, MetadataProvenance
+from exporter.staging import StagingInfo, StagingService, StagingInfoRepository, PartialStagingInfo, \
     StagingFailed
 
 logging.disable(logging.CRITICAL)

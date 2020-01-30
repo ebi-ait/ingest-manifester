@@ -4,8 +4,8 @@ import logging
 import time
 
 from ingest.api.ingestapi import IngestApi
-from ingest.exporter.exporter import Exporter
-from ingest.exporter.ingestexportservice import IngestExporter
+from exporter.exporter import Exporter
+from exporter.ingestexportservice import IngestExporter
 from kombu.mixins import ConsumerProducerMixin
 
 

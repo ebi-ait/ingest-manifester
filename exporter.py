@@ -6,11 +6,11 @@ import logging
 from ingest.api.dssapi import DssApi
 from ingest.api.ingestapi import IngestApi
 from ingest.api.stagingapi import StagingApi
-from ingest.exporter.bundle import BundleService
-from ingest.exporter.exporter import Exporter
-from ingest.exporter.ingestexportservice import IngestExporter
-from ingest.exporter.metadata import MetadataService
-from ingest.exporter.staging import StagingService, StagingInfoRepository
+from exporter.bundle import BundleService
+from exporter.exporter import Exporter
+from exporter.ingestexportservice import IngestExporter
+from exporter.metadata import MetadataService
+from exporter.staging import StagingService, StagingInfoRepository
 from ingest.utils.s2s_token_client import S2STokenClient
 from ingest.utils.token_manager import TokenManager
 from kombu import Connection, Exchange, Queue

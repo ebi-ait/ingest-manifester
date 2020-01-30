@@ -2,10 +2,10 @@ from unittest import TestCase
 
 from mock import Mock, call
 
-from ingest.exporter.bundle import Bundle
-from ingest.exporter.exporter import Exporter, SubmissionEnvelope, SubmissionEnvelopeParseException
-from ingest.exporter.metadata import MetadataResource, MetadataProvenance
-from ingest.exporter.staging import StagingInfo
+from exporter.bundle import Bundle
+from exporter.exporter import Exporter, SubmissionEnvelope, SubmissionEnvelopeParseException
+from exporter.metadata import MetadataResource, MetadataProvenance
+from exporter.staging import StagingInfo
 
 
 def _create_test_bundle_file(uuid='', name='', content_type_prefix='metadata',

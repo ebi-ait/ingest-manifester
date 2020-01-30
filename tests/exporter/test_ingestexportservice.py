@@ -7,12 +7,12 @@ from unittest import TestCase
 import requests
 from mock import MagicMock, Mock, patch
 
-import ingest.exporter.ingestexportservice as ingestexportservice
+import exporter.ingestexportservice as ingestexportservice
 from ingest.api.dssapi import DssApi
 from ingest.api.ingestapi import IngestApi
-from ingest.exporter.staging import StagingService
+from exporter.staging import StagingService
 from ingest.api.stagingapi import FileDescription
-from ingest.exporter.ingestexportservice import IngestExporter, LinkSet
+from exporter.ingestexportservice import IngestExporter, LinkSet
 from ingest.utils.IngestError import ExporterError
 
 BASE_PATH = os.path.dirname(__file__)

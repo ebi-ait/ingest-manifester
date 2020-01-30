@@ -3,9 +3,9 @@ from uuid import uuid4
 
 from mock import Mock, call
 
-from ingest.exporter.bundle import Bundle, BundleService, BundleManifest
-from ingest.exporter.metadata import MetadataResource, MetadataProvenance
-from ingest.exporter.staging import StagingInfo
+from exporter.bundle import Bundle, BundleService, BundleManifest
+from exporter.metadata import MetadataResource, MetadataProvenance
+from exporter.staging import StagingInfo
 from tests.exporter.test_exporter import _create_test_bundle_file
 
 

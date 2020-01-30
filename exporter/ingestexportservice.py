@@ -11,11 +11,11 @@ from typing import Optional
 import polling
 import requests
 
-import ingest.exporter.bundle
+import exporter.bundle
 from ingest.api.dssapi import DssApi, BundleAlreadyExist
 from ingest.api.ingestapi import IngestApi
-from ingest.exporter.metadata import MetadataResource
-from ingest.exporter.staging import StagingService, StagingInfo
+from exporter.metadata import MetadataResource
+from exporter.staging import StagingService, StagingInfo
 from ingest.utils.IngestError import ExporterError
 from .exceptions import BundleDSSError, BundleFileUploadError, FileDSSError, MultipleProjectsError, \
     NoUploadAreaFoundError
@@ -87,7 +87,7 @@ class IngestExporter:
         })
 
         # restructure bundle manifest
-        bundle_manifest = ingest.exporter.bundle.BundleManifest()
+        bundle_manifest = exporter.bundle.BundleManifest()
         bundle_manifest.envelopeUuid = submission_uuid
         bundle_manifest.bundleUuid = bundle_uuid
         bundle_manifest.bundleVersion = bundle_version

@@ -1,7 +1,7 @@
 from ingest.api.ingestapi import IngestApi
-from ingest.exporter.bundle import BundleService, Bundle
-from ingest.exporter.metadata import MetadataService
-from ingest.exporter.staging import StagingService
+from exporter.bundle import BundleService, Bundle
+from exporter.metadata import MetadataService
+from exporter.staging import StagingService
 
 
 class SubmissionEnvelopeParseException(Exception):
