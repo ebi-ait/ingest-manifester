@@ -10,7 +10,7 @@ _metadata_type_attr_map = {
 }
 
 
-class BundleManifest:
+class FileManifest:
 
     def __init__(self, bundleUuid=None, envelopeUuid=None, bundleVersion=None):
         self.bundleUuid = bundleUuid

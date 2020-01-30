@@ -11,7 +11,7 @@ from typing import Optional
 import polling
 import requests
 
-import exporter.bundle
+from exporter.manifest import FileManifest
 from ingest.api.dssapi import DssApi, BundleAlreadyExist
 from ingest.api.ingestapi import IngestApi
 from exporter.metadata import MetadataResource
@@ -87,11 +87,11 @@ class IngestExporter:
         })
 
         # restructure bundle manifest
-        bundle_manifest = exporter.bundle.BundleManifest()
-        bundle_manifest.envelopeUuid = submission_uuid
-        bundle_manifest.bundleUuid = bundle_uuid
-        bundle_manifest.bundleVersion = bundle_version
-        bundle_manifest = self.create_bundle_manifest(bundle_manifest, files_by_type)
+        file_manifest = FileManifest()
+        file_manifest.envelopeUuid = submission_uuid
+        file_manifest.bundleUuid = bundle_uuid
+        file_manifest.bundleVersion = bundle_version
+        file_manifest = self.create_bundle_manifest(file_manifest, files_by_type)
 
         self.logger.info('Generating bundle files...')
 
@@ -104,10 +104,10 @@ class IngestExporter:
                     bundle_file = metadata_doc
                     filename = bundle_file['upload_filename']
                     content = bundle_file['content']
-                    output_dir = self.output_dir if self.output_dir else bundle_manifest.bundleUuid
+                    output_dir = self.output_dir if self.output_dir else file_manifest.bundleUuid
                     self.dump_to_file(json.dumps(content, indent=4), filename, output_dir=output_dir)
 
-            self.logger.info("Dry run for bundle %s", bundle_manifest.bundleUuid)
+            self.logger.info("Dry run for bundle %s", file_manifest.bundleUuid)
             self.logger.info("Execution Time: %d seconds", time.time() - start_time)
         else:
             self.logger.info('Uploading metadata files...')
@@ -123,8 +123,8 @@ class IngestExporter:
             data_files = self.get_data_files(metadata_by_type['file'])
             bundle_files = metadata_files + data_files
 
-            bundle_manifest.dataFiles = list()
-            bundle_manifest.dataFiles = [data_file['dss_uuid'] for data_file in data_files]
+            file_manifest.dataFiles = list()
+            file_manifest.dataFiles = [data_file['dss_uuid'] for data_file in data_files]
             self.logger.info('Saving files in DSS...')
 
             try:
@@ -138,9 +138,9 @@ class IngestExporter:
                 self.put_bundle_in_dss(bundle_uuid, bundle_version, created_files)
 
                 self.logger.info('Saving bundle manifest...')
-                self.ingest_api.create_bundle_manifest(bundle_manifest)
+                self.ingest_api.create_bundle_manifest(file_manifest)
 
-                saved_bundle_uuid = bundle_manifest.bundleUuid
+                saved_bundle_uuid = file_manifest.bundleUuid
 
                 self.logger.info("Bundle %s was successfully created!", bundle_uuid)
                 self.logger.info("Execution Time: %d seconds", time.time() - start_time)
