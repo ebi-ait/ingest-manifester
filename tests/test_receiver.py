@@ -54,10 +54,7 @@ class TestReceiver(TestCase):
         create_receiver.on_message(self.create_message_body, message)
 
         # then
-        mock_exporter.export_bundle.assert_called_with(bundle_uuid='bundle-uuid',
-                                              bundle_version=bundle_version,
-                                              submission_uuid='submission-uuid',
-                                              process_uuid='doc-uuid')
+        mock_exporter.export_bundle.assert_called_with(submission_uuid='submission-uuid', process_uuid='doc-uuid')
 
         create_receiver.notify_state_tracker.assert_called_with(json.loads(self.create_message_body))
 
@@ -86,9 +83,6 @@ class TestReceiver(TestCase):
         create_receiver.on_message(self.create_message_body, message)
 
         # then
-        mock_exporter.export_bundle.assert_called_with(bundle_uuid='bundle-uuid',
-                                              bundle_version=bundle_version,
-                                              submission_uuid='submission-uuid',
-                                              process_uuid='doc-uuid')
+        mock_exporter.export_bundle.assert_called_with(submission_uuid='submission-uuid', process_uuid='doc-uuid')
         message.ack.assert_called_once()
         create_receiver.notify_state_tracker.assert_not_called()

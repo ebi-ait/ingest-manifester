@@ -8,7 +8,6 @@ import requests
 from mock import MagicMock, Mock, patch
 
 import exporter.ingestexportservice as ingestexportservice
-from ingest.api.dssapi import DssApi
 from ingest.api.ingestapi import IngestApi
 from exporter.staging import StagingService
 from ingest.api.stagingapi import FileDescription
@@ -23,14 +22,12 @@ class TestExporter(TestCase):
         self.longMessage = True
 
         # Setup mocked APIs
-        self.mock_dss_api = MagicMock(spec=DssApi)
         self.mock_ingest_api = MagicMock(spec=IngestApi)
         self.mock_staging_service = MagicMock(spec=StagingService)
 
     def test_get_input_bundle(self):
         # given:
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
+        exporter = IngestExporter(ingest_api=self.mock_ingest_api, staging_service=self.mock_staging_service)
         # and:
         self.mock_ingest_api.get_related_entities.return_value = ['bundle1', 'bundle2']
         process = {}
@@ -56,8 +53,7 @@ class TestExporter(TestCase):
         sample_metadata_json["content"]["describedBy"] = arbitrary_schema_url
 
         # Execute test
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
+        exporter = IngestExporter(ingest_api=self.mock_ingest_api, staging_service=self.mock_staging_service)
         provenance_filled_metadata = exporter.bundle_metadata(sample_metadata_json, arbitrary_uuid)
 
         # Verify provenance block's existance and that contents match as expected
@@ -71,46 +67,45 @@ class TestExporter(TestCase):
     @unittest.skip
     def test_upload_metadata_files(self):
         # given:
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
+        exporter = IngestExporter(ingest_api=self.mock_ingest_api, staging_service=self.mock_staging_service)
 
         # and:
         file_desc = FileDescription('checksums', 'contentType', 'name', 'name', 'file_url')
         exporter.upload_file = MagicMock(return_value=file_desc)
         metadata_files_info = {
             'project': {
-                'dss_filename': 'project.json',
-                'dss_uuid': 'uuid',
+                'data_filename': 'project.json',
+                'data_uid': 'uuid',
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'biomaterial': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'process': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'protocol': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'file': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'links': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
@@ -123,50 +118,49 @@ class TestExporter(TestCase):
         # then:
         for metadata_list in metadata_files_info.values():
             for metadata_file in metadata_list:
-                self.assertEqual(metadata_file['dss_uuid'], 'uuid')
+                self.assertEqual(metadata_file['data_uid'], 'uuid')
                 self.assertEqual(metadata_file['upload_file_url'], 'file_url')
 
     def test_upload_metadata_files_error(self):
         # given:
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
+        exporter = IngestExporter(ingest_api=self.mock_ingest_api, staging_service=self.mock_staging_service)
 
         # and:
         exporter.upload_file = Mock(side_effect=Exception('test upload file error'))
         metadata_files_info = {
             'project': {
-                'dss_filename': 'project.json',
-                'dss_uuid': 'uuid',
+                'data_filename': 'project.json',
+                'data_uid': 'uuid',
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'biomaterial': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'process': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'protocol': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'file': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
             },
             'links': {
-                'dss_uuid': None,
+                'data_uid': None,
                 'content': {},
                 'content_type': 'type',
                 'upload_filename': 'filename'
@@ -177,26 +171,11 @@ class TestExporter(TestCase):
         with self.assertRaises(ingestexportservice.BundleFileUploadError):
             exporter.upload_metadata_files('sub_uuid', metadata_files_info)
 
-    def test_put_bundle_in_dss_error(self):
-        # given:
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
-
-        # and:
-        self.mock_dss_api.put_bundle.side_effect = Exception('test create bundle error')
-
-        # when, then:
-        with self.assertRaises(ingestexportservice.BundleDSSError):
-            exporter.put_bundle_in_dss('bundle_uuid', 'bundle_version', [])
-
+    # TODO Fix this test
     # mocks linked entities in the ingest API, attempts to build a bundle by crawling from an assay
     # process, asserts that the bundle created is equivalent to a known bundle
-    @unittest.skip
-    @patch('ingest.api.dssapi.DssApi')
-    def test_create_bundle_manifest(self, dss_api_constructor):
+    def test_create_bundle_manifest(self):
         # given:
-        dss_api_constructor.return_value = MagicMock('mock_dss_api')
-
         class MockRequestResponse:
             def __init__(self, json_payload, status_code):
                 self.payload = json_payload
@@ -359,7 +338,7 @@ class TestExporter(TestCase):
         get_requests_mock.side_effect = mock_entities_retrieval
         requests.get = get_requests_mock
 
-        exporter = ingestexportservice.IngestExporter()
+        exporter = IngestExporter(ingest_api=self.mock_ingest_api, staging_service=self.mock_staging_service)
         process_info = exporter.get_all_process_info('http://mock-ingest-api/processes/mock-assay-process-id')
         metadata_by_type = exporter.get_metadata_by_type(process_info)
         bundle_metadata_info = exporter.prepare_metadata_files(metadata_by_type)
@@ -481,8 +460,7 @@ class TestExporter(TestCase):
 
     def test_upload_error_posted_to_ingest_api(self):
         # given:
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
+        exporter = IngestExporter(ingest_api=self.mock_ingest_api, staging_service=self.mock_staging_service)
         self.mock_staging_service.staging_area_exists = Mock(return_value=True)
 
         # and:
@@ -500,42 +478,9 @@ class TestExporter(TestCase):
         exporter.upload_metadata_files = MagicMock(side_effect=error)
 
         # when:
-        self.assertRaises(Exception, lambda: exporter.export_bundle(bundle_uuid=None, bundle_version=None, submission_uuid=None, process_uuid=None))
+        self.assertRaises(Exception, lambda: exporter.export_bundle(submission_uuid=None, process_uuid=None))
 
         # then:
-        self.mock_ingest_api.create_submission_error.assert_called_once_with(
-            self.SUBMISSION.get("_links").get("self").get("href"),
-            error_json
-        )
-
-    def test_dss_upload_error_posted_to_ingest_api(self):
-        # given:
-        exporter = IngestExporter(ingest_api=self.mock_ingest_api, dss_api=self.mock_dss_api,
-                                  staging_service=self.mock_staging_service)
-        self.mock_staging_service.staging_area_exists = Mock(return_value=True)
-
-        # and:
-        self.mock_ingest_api.get_entity_by_uuid = MagicMock(return_value=self.SUBMISSION)
-        exporter.logger.info = MagicMock()
-        exporter.get_all_process_info = MagicMock()
-        exporter.get_metadata_by_type = MagicMock()
-        exporter.prepare_metadata_files = MagicMock()
-        exporter.bundle_links = MagicMock()
-        exporter.create_bundle_manifest = MagicMock()
-        exporter.upload_metadata_files = MagicMock()
-        exporter.get_metadata_files = MagicMock(return_value=list())
-        exporter.get_data_files = MagicMock(return_value=list())
-
-        error = Exception('Error thrown for Unit Test')
-        error_json = ExporterError(str(error)).getJSON()
-        exporter.put_bundle_in_dss = MagicMock(side_effect=error)
-
-        # when:
-        with self.assertRaises(Exception) as context:
-            exporter.export_bundle(bundle_uuid=None, bundle_version=None, submission_uuid=None, process_uuid=None)
-
-        # then:
-        self.assertIsNotNone(context.exception)
         self.mock_ingest_api.create_submission_error.assert_called_once_with(
             self.SUBMISSION.get("_links").get("self").get("href"),
             error_json

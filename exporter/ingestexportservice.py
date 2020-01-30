@@ -6,27 +6,22 @@ import re
 import time
 import uuid
 from copy import deepcopy
-from typing import Optional
 
-import polling
-import requests
+from ingest.api.ingestapi import IngestApi
+from ingest.utils.IngestError import ExporterError
 
 from exporter.manifest import FileManifest
-from ingest.api.dssapi import DssApi, BundleAlreadyExist
-from ingest.api.ingestapi import IngestApi
 from exporter.metadata import MetadataResource
 from exporter.staging import StagingService, StagingInfo
-from ingest.utils.IngestError import ExporterError
-from .exceptions import BundleDSSError, BundleFileUploadError, FileDSSError, MultipleProjectsError, \
+from .exceptions import BundleFileUploadError, MultipleProjectsError, \
     NoUploadAreaFoundError
 
 DEFAULT_INGEST_URL = os.environ.get('INGEST_API', 'http://api.ingest.dev.data.humancellatlas.org')
 DEFAULT_STAGING_URL = os.environ.get('STAGING_API', 'http://upload.dev.data.humancellatlas.org')
-DEFAULT_DSS_URL = os.environ.get('DSS_API', 'http://dss.dev.data.humancellatlas.org')
 
 
 class IngestExporter:
-    def __init__(self, ingest_api: IngestApi, dss_api: DssApi, staging_service: StagingService, dry_run=False,
+    def __init__(self, ingest_api: IngestApi, staging_service: StagingService, dry_run=False,
                  output_directory=None):
         format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         logging.basicConfig(format=format)
@@ -35,22 +30,19 @@ class IngestExporter:
         self.dry_run = dry_run
         self.output_dir = output_directory
 
-        self.dss_api = dss_api
         self.ingest_api = ingest_api
         self.staging_service = staging_service
         self.related_entities_cache = {}
 
-    def export_bundle(self, bundle_uuid, bundle_version, submission_uuid, process_uuid):
+    def export_bundle(self, submission_uuid, process_uuid):
         start_time = time.time()
         self.related_entities_cache = {}
-        saved_bundle_uuid = None
 
         if not self.dry_run and not self.staging_service.staging_area_exists(submission_uuid):
             error_message = "Can't do export as no upload area has been created."
             raise NoUploadAreaFoundError(error_message)
 
         self.logger.info("Export bundle for process with UUID %s", process_uuid)
-
         self.logger.info('Retrieving all process information...')
 
         process = self.ingest_api.get_entity_by_uuid('processes', process_uuid)
@@ -81,16 +73,14 @@ class IngestExporter:
             'content': links,
             'content_type': 'metadata/{0}'.format('links'),
             'indexed': is_indexed,
-            'dss_filename': 'links.json',
-            'dss_uuid': links_file_uuid,
+            'data_filename': 'links.json',
+            'data_uid': links_file_uuid,
             'upload_filename': 'links_' + links_file_uuid + '.json'
         })
 
         # restructure bundle manifest
         file_manifest = FileManifest()
         file_manifest.envelopeUuid = submission_uuid
-        file_manifest.bundleUuid = bundle_uuid
-        file_manifest.bundleVersion = bundle_version
         file_manifest = self.create_bundle_manifest(file_manifest, files_by_type)
 
         self.logger.info('Generating bundle files...')
@@ -119,51 +109,16 @@ class IngestExporter:
                     self.ingest_api.create_submission_error(submission_url, ExporterError(str(bundle_error)).getJSON())
                 raise
 
-            metadata_files = self.get_metadata_files(files_by_type)
-            data_files = self.get_data_files(metadata_by_type['file'])
-            bundle_files = metadata_files + data_files
-
-            file_manifest.dataFiles = list()
-            file_manifest.dataFiles = [data_file['dss_uuid'] for data_file in data_files]
-            self.logger.info('Saving files in DSS...')
-
-            try:
-                created_files = self.put_files_in_dss(bundle_uuid, bundle_files, process_info)
-
-                # check all created files
-                self.logger.info('Verifying if all files get successfully copied to DSS...')
-                self.verify_files(created_files)
-
-                self.logger.info('Saving bundle in DSS...')
-                self.put_bundle_in_dss(bundle_uuid, bundle_version, created_files)
-
-                self.logger.info('Saving bundle manifest...')
-                self.ingest_api.create_bundle_manifest(file_manifest)
-
-                saved_bundle_uuid = file_manifest.bundleUuid
-
-                self.logger.info("Bundle %s was successfully created!", bundle_uuid)
-                self.logger.info("Execution Time: %d seconds", time.time() - start_time)
-            except BundleAlreadyExist:
-                raise
-            except Exception as unresolvable_exception:
-                submission_url = self._extract_submission_url(submission)
-                if submission_url:
-                    self.ingest_api.create_submission_error(
-                        submission_url,
-                        ExporterError(str(unresolvable_exception)).getJSON()
-                    )
-                raise
-        return saved_bundle_uuid
-
-    def _extract_submission_url(self, submission_json):
+    @staticmethod
+    def _extract_submission_url(submission_json):
         submission_url = None
         submission_links = submission_json.get('_links')
         if submission_links:
             submission_url = submission_links.get('self').get('href')
         return submission_url
 
-    def get_metadata_by_type(self, process_info: 'ProcessInfo') -> dict:
+    @staticmethod
+    def get_metadata_by_type(process_info: 'ProcessInfo') -> dict:
         #  given a ProcessInfo, pull out all the metadata and return as a map of UUID->metadata documents
         simplified = dict()
         simplified['process'] = dict(process_info.derived_by_processes)
@@ -348,8 +303,8 @@ class IngestExporter:
                     'content': self.bundle_metadata(doc, metadata_uuid),
                     'content_type': 'metadata/{0}'.format(entity_type),
                     'indexed': is_indexed,
-                    'dss_filename': file_name,
-                    'dss_uuid': metadata_uuid,
+                    'data_filename': file_name,
+                    'data_uid': metadata_uuid,
                     'upload_filename': upload_filename,
                     'update_date': doc['dcpVersion'],
                     'is_from_input_bundle': self._is_from_input_bundle(entity_type, metadata_uuid,
@@ -421,92 +376,6 @@ class IngestExporter:
             message = "An error occurred on uploading bundle files: " + str(exception)
             raise BundleFileUploadError(message)
 
-    # TODO handle error #export-errors
-    def put_bundle_in_dss(self, bundle_uuid, bundle_version, created_files):
-        try:
-            created_bundle = self.dss_api.put_bundle(bundle_uuid, bundle_version, created_files)
-        except BundleAlreadyExist as exception:
-            raise BundleAlreadyExist(f"ERROR: Bundle already exists: {str(exception)}")
-        except Exception as exception:
-            raise BundleDSSError(f"ERROR: An error occurred while putting bundle in DSS: {str(exception)}")
-
-        return created_bundle
-
-    # TODO handle error #exporter-errors
-    def put_files_in_dss(self, bundle_uuid, files_to_put, process_info):
-        created_files = []
-
-        for bundle_file in files_to_put:
-            file_uuid = bundle_file.get('dss_uuid')
-            file_version = bundle_file.get('update_date')
-            input_data_files = [input_file['dataFileUuid'] for input_file in list(process_info.input_files.values())]
-
-            try:
-                # TODO if file is an input file, this file may already be in the data store, need to get the stored
-                #  version. This assumes that the latest version is the file version in the input bundle, should be a
-                #  safe assumption for now. Ideally, bundle manifest must store the file uuid and version and version
-                #  must be retrieved from there
-
-                # if metadata file , check is_from_input_bundle flag, if true, do not put file to DSS again
-                if bundle_file.get('is_from_input_bundle') or file_uuid in input_data_files:
-                    file_response = self.dss_api.head_file(file_uuid)
-                    file_version = file_response.headers['X-DSS-VERSION']
-                else:
-                    file = self.check_file_in_dss(file_uuid, file_version)
-
-                    if not file:
-                        file = self.dss_api.put_file(bundle_uuid, bundle_file)
-
-                    file_version = file.get('version')
-            except Exception as exception:
-                raise FileDSSError(f'An error occurred while putting file in DSS {str(exception)}')
-
-            file_param = {
-                "indexed": bundle_file["indexed"],
-                "name": bundle_file["submittedName"],
-                "uuid": file_uuid,
-                "content-type": bundle_file["content-type"],
-                "version": file_version
-            }
-
-            created_files.append(file_param)
-
-        return created_files
-
-    def check_file_in_dss(self, file_uuid: str, file_version: str) -> Optional[dict]:
-        try:
-            head_file_response = self.dss_api.head_file(file_uuid, file_version)
-            file_version = head_file_response.headers['X-DSS-VERSION']
-            return {
-                'version': file_version
-            }
-
-        except Exception as e:
-            self.logger.info(f'File could not be found, {str(e)}')
-            return None
-
-    def verify_files(self, created_files):
-        for created_file in created_files:
-            try:
-                polling.poll(
-                    lambda: self._is_file_copied(created_file),
-                    step=30,
-                    timeout=1200  # 20 minutes
-                )
-            except polling.TimeoutException:
-                self.logger.error("File %s/%s with name %s takes too long to be copied.", created_file["uuid"],
-                                  created_file["version"], created_file["name"])
-                raise
-            self.logger.info("File %s/%s with name %s is successfully copied!", created_file["uuid"],
-                             created_file["version"], created_file["name"])
-
-    def _is_file_copied(self, created_file):
-        try:
-            r = self.dss_api.head_file(created_file["uuid"], version=created_file["version"])
-            return (r.status_code == requests.codes.ok) or (r.status_code == requests.codes.created)
-        except Exception:
-            return False
-
     def get_metadata_files(self, metadata_files_info):
         metadata_files = []
 
@@ -514,9 +383,9 @@ class IngestExporter:
             for metadata_file in metadata_files_info[entity_type]:
                 metadata_files.append({
                     'name': metadata_file['upload_filename'],
-                    'submittedName': metadata_file['dss_filename'],
+                    'submittedName': metadata_file['data_filename'],
                     'url': metadata_file.get('upload_file_url'),
-                    'dss_uuid': metadata_file['dss_uuid'],
+                    'data_uid': metadata_file['data_uid'],
                     'indexed': metadata_file['indexed'],
                     'content-type': metadata_file['content_type'],
                     'update_date': metadata_file.get('update_date'),
@@ -536,7 +405,7 @@ class IngestExporter:
                 'name': filename,
                 'submittedName': filename,
                 'url': cloud_url,
-                'dss_uuid': data_file_uuid,
+                'data_uid': data_file_uuid,
                 'indexed': False,
                 'content-type': 'data'
             })
@@ -546,23 +415,23 @@ class IngestExporter:
     def create_bundle_manifest(self, bundle_manifest, files_by_type):
         bundle_manifest.fileProjectMap = dict()
         for metadata_file in files_by_type['project']:
-            bundle_manifest.fileProjectMap[metadata_file['dss_uuid']] = [metadata_file['dss_uuid']]
+            bundle_manifest.fileProjectMap[metadata_file['data_uid']] = [metadata_file['data_uid']]
 
         bundle_manifest.fileBiomaterialMap = dict()
         for metadata_file in files_by_type['biomaterial']:
-            bundle_manifest.fileBiomaterialMap[metadata_file['dss_uuid']] = [metadata_file['dss_uuid']]
+            bundle_manifest.fileBiomaterialMap[metadata_file['data_uid']] = [metadata_file['data_uid']]
 
         bundle_manifest.fileProcessMap = dict()
         for metadata_file in files_by_type['process']:
-            bundle_manifest.fileProcessMap[metadata_file['dss_uuid']] = [metadata_file['dss_uuid']]
+            bundle_manifest.fileProcessMap[metadata_file['data_uid']] = [metadata_file['data_uid']]
 
         bundle_manifest.fileProtocolMap = dict()
         for metadata_file in files_by_type['protocol']:
-            bundle_manifest.fileProtocolMap[metadata_file['dss_uuid']] = [metadata_file['dss_uuid']]
+            bundle_manifest.fileProtocolMap[metadata_file['data_uid']] = [metadata_file['data_uid']]
 
         bundle_manifest.fileFilesMap = dict()
         for metadata_file in files_by_type['file']:
-            bundle_manifest.fileFilesMap[metadata_file['dss_uuid']] = [metadata_file['dss_uuid']]
+            bundle_manifest.fileFilesMap[metadata_file['data_uid']] = [metadata_file['data_uid']]
 
         return bundle_manifest
 

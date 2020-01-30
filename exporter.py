@@ -4,7 +4,6 @@ import os
 import sys
 from multiprocessing.dummy import Process
 
-from ingest.api.dssapi import DssApi
 from ingest.api.ingestapi import IngestApi
 from ingest.api.stagingapi import StagingApi
 from ingest.utils.s2s_token_client import S2STokenClient
@@ -45,7 +44,6 @@ RETRY_POLICY = {
 if __name__ == '__main__':
     logging.getLogger('receiver').setLevel(logging.INFO)
     logging.getLogger('ingest').setLevel(logging.INFO)
-    logging.getLogger('ingest.api.dssapi').setLevel(logging.DEBUG)
 
     format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:' \
              '%(lineno)s %(funcName)s(): %(message)s'
@@ -53,7 +51,6 @@ if __name__ == '__main__':
                         format=format)
 
     upload_client = StagingApi()
-    dss_client = DssApi()
 
     s2s_token_client = S2STokenClient()
     gcp_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
@@ -80,7 +77,7 @@ if __name__ == '__main__':
             'retry_policy': RETRY_POLICY
         }
 
-        ingest_exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_service=staging_service)
+        ingest_exporter = IngestExporter(ingest_api=ingest_client, staging_service=staging_service)
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, ingest_exporter=ingest_exporter, publish_config=conf)
 
     if not DISABLE_BUNDLE_CREATE:

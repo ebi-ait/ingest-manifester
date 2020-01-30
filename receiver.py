@@ -45,7 +45,6 @@ class CreateBundleReceiver(BundleReceiver):
         super(CreateBundleReceiver, self).run()
 
     def on_message(self, body, message):
-        self.ingest_exporter.dss_api.init_dss_client()  # TODO workaround to fix expiration of signature when using DSS client
         self.logger.info(f'Message received: {body}')
 
         self.logger.info('Ack-ing message...')
@@ -62,12 +61,7 @@ class CreateBundleReceiver(BundleReceiver):
                     body_dict["index"]) + ', total processes: ' + str(
                     body_dict["total"]))
 
-            bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
-
-            self.ingest_exporter.export_bundle(bundle_uuid=body_dict["bundleUuid"],
-                                               bundle_version=bundle_version,
-                                               submission_uuid=body_dict["envelopeUuid"],
-                                               process_uuid=body_dict["documentUuid"])
+            self.ingest_exporter.export_bundle(submission_uuid=body_dict["envelopeUuid"],process_uuid=body_dict["documentUuid"])
             success = True
         except Exception as e1:
             self.logger.exception(str(e1))

@@ -1,13 +1,5 @@
-class BundleDSSError(Exception):
-    """There was a failure in bundle creation in DSS."""
-
-
 class BundleFileUploadError(Exception):
     """There was a failure in bundle file upload."""
-
-
-class FileDSSError(Exception):
-    """There was a failure in file creation in DSS."""
 
 
 class InvalidBundleError(Exception):

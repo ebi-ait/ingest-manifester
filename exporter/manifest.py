@@ -12,10 +12,8 @@ _metadata_type_attr_map = {
 
 class FileManifest:
 
-    def __init__(self, bundleUuid=None, envelopeUuid=None, bundleVersion=None):
-        self.bundleUuid = bundleUuid
+    def __init__(self, envelopeUuid=None):
         self.envelopeUuid = envelopeUuid if envelopeUuid is not None else {}
-        self.bundleVersion = bundleVersion
         self.dataFiles = []
         self.fileBiomaterialMap = {}
         self.fileProcessMap = {}

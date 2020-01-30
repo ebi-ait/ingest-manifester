@@ -1,5 +1,5 @@
 openpyxl==2.4.8
-xlsxwriter==0.9.8
+xlsxwriter==1.2.7
 requests
 kombu
 pika
