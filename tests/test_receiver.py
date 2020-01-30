@@ -2,8 +2,8 @@ import datetime
 import json
 
 from unittest import TestCase
-from mock import MagicMock, Mock, mock, patch
-from receiver import CreateBundleReceiver, UpdateBundleReceiver
+from mock import MagicMock, Mock
+from receiver import CreateBundleReceiver
 
 
 class TestReceiver(TestCase):
@@ -92,64 +92,3 @@ class TestReceiver(TestCase):
                                               process_uuid='doc-uuid')
         message.ack.assert_called_once()
         create_receiver.notify_state_tracker.assert_not_called()
-
-    def test_update_bundle_receiver_on_message(self):
-        # given
-
-        version_timestamp = datetime.datetime.strptime(
-                "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-        bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
-
-        exporter = MagicMock('exporter')
-        exporter.bundle_service = MagicMock()
-        exporter.bundle_service.dss_client = MagicMock()
-        exporter.bundle_service.dss_client.init_dss_client = MagicMock(
-            'bundle_service')
-        exporter.export_update = Mock()
-
-        ingest_client = MagicMock('ingest_client')
-        ingest_client.get_submission_by_uuid = Mock(return_value={'submission-uuid': 'uuid'})
-        update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(), exporter, ingest_client, self.publish_config)
-
-        message = MagicMock(name='message')
-        message.ack = Mock()
-        update_receiver.notify_state_tracker = Mock()
-
-        # when
-        update_receiver.on_message(self.update_message_body, message)
-
-        # then
-        exporter.export_update.assert_called_with({'submission-uuid': 'uuid'}, 'bundle-uuid',
-                                                  ["/link1", "/link1"], bundle_version)
-
-        message.ack.assert_called_once()
-        update_receiver.notify_state_tracker.assert_called_with(json.loads(self.update_message_body))
-
-    def test_update_bundle_receiver_on_message_exception(self):
-        # given
-        version_timestamp = datetime.datetime.strptime(
-                "2018-03-26T14:27:53.360Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-        bundle_version = version_timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
-        exporter = MagicMock('exporter')
-        exporter.bundle_service = MagicMock()
-        exporter.bundle_service.dss_client = MagicMock()
-        exporter.bundle_service.dss_client.init_dss_client = MagicMock('bundle_service')
-        exporter.export_update = Mock()
-        exporter.export_update.side_effect = Exception('unhandled exception')
-        ingest_client = MagicMock('ingest_client')
-        ingest_client.get_submission_by_uuid = Mock()
-        update_receiver = UpdateBundleReceiver(MagicMock(), MagicMock(),
-                                               exporter,
-                                               ingest_client, self.publish_config)
-
-        message = MagicMock(name='message')
-        message.ack = Mock()
-        update_receiver.notify_state_tracker = Mock()
-
-        # when
-        update_receiver.on_message(self.update_message_body, message)
-
-        # then
-        exporter.export_update.assert_called_once()
-        message.ack.assert_called_once()
-        update_receiver.notify_state_tracker.assert_not_called()

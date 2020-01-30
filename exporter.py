@@ -1,22 +1,19 @@
 #!/usr/bin/env python
+import logging
 import os
 import sys
-import logging
+from multiprocessing.dummy import Process
 
 from ingest.api.dssapi import DssApi
 from ingest.api.ingestapi import IngestApi
 from ingest.api.stagingapi import StagingApi
-from exporter.bundle import BundleService
-from exporter.exporter import Exporter
-from exporter.ingestexportservice import IngestExporter
-from exporter.metadata import MetadataService
-from exporter.staging import StagingService, StagingInfoRepository
 from ingest.utils.s2s_token_client import S2STokenClient
 from ingest.utils.token_manager import TokenManager
 from kombu import Connection, Exchange, Queue
-from multiprocessing.dummy import Process
 
-from receiver import CreateBundleReceiver, UpdateBundleReceiver
+from exporter.ingestexportservice import IngestExporter
+from exporter.staging import StagingService, StagingInfoRepository
+from receiver import CreateBundleReceiver
 
 DISABLE_BUNDLE_CREATE = os.environ.get('DISABLE_BUNDLE_CREATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
@@ -83,33 +80,9 @@ if __name__ == '__main__':
             'retry_policy': RETRY_POLICY
         }
 
-        exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_service=staging_service)
-        create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
+        ingest_exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_service=staging_service)
+        create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, ingest_exporter=ingest_exporter, publish_config=conf)
 
-    with Connection(DEFAULT_RABBIT_URL) as conn:
-        bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
-        bundle_queues = [
-            Queue(BUNDLE_UPDATE_QUEUE, bundle_exchange,
-                  routing_key=BUNDLE_UPDATE_ROUTING_KEY)]
-
-        metadata_service = MetadataService(ingest_client=ingest_client)
-        bundle_service = BundleService(dss_client=dss_client)
-
-        exporter = Exporter(ingest_api=ingest_client, metadata_service=metadata_service, bundle_service=bundle_service,
-                            staging_service=staging_service)
-
-        conf = {
-            'exchange': EXCHANGE,
-            'routing_key': ASSAY_COMPLETED_ROUTING_KEY,
-            'retry': True,
-            'retry_policy': RETRY_POLICY
-        }
-        update_bundle_receiver = UpdateBundleReceiver(connection=conn, queues=bundle_queues, exporter=exporter,
-                                                      ingest_client=ingest_client, publish_config=conf)
     if not DISABLE_BUNDLE_CREATE:
         create_process = Process(target=create_bundle_receiver.run)
         create_process.start()
-
-    if not DISABLE_BUNDLE_UPDATE:
-        update_process = Process(target=update_bundle_receiver.run)
-        update_process.start()

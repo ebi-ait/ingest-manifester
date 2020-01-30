@@ -6,8 +6,12 @@ from mock import Mock, call
 from exporter.bundle import Bundle, BundleService, BundleManifest
 from exporter.metadata import MetadataResource, MetadataProvenance
 from exporter.staging import StagingInfo
-from tests.exporter.test_exporter import _create_test_bundle_file
 
+def _create_test_bundle_file(uuid='', name='', content_type_prefix='metadata',
+                             content_type='biomaterial', version='', indexed=True):
+    dcp_type = f'"{content_type_prefix}/{content_type}"' if content_type_prefix else content_type
+    return {'content-type': f'application/json; dcp-type={dcp_type}', 'uuid': uuid,
+            'name': name, 'version': version, 'indexed': indexed}
 
 class BundleManifestTest(TestCase):
 
