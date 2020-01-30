@@ -108,22 +108,3 @@ class Bundle:
                 mapping = {file_uuid: [file_uuid]}
                 manifest.add_bundle_file(content_type, mapping)
         return manifest
-
-
-class BundleService:
-
-    def __init__(self, dss_client: DssApi):
-        self.dss_client = dss_client
-
-    def fetch(self, uuid: str, version=None) -> Bundle:
-        bundle_source = self.dss_client.get_bundle(uuid, version)
-        return Bundle.bundle_from_source(bundle_source)
-
-    def update(self, bundle: Bundle, staging_details: list):
-        cloud_url_map = {info.metadata_uuid: info.cloud_url for info in staging_details}
-        bundle_files = bundle.get_files()
-        for uuid, cloud_url in cloud_url_map.items():
-            file = bundle.get_file(uuid)
-            self.dss_client.put_file(None, {'url': cloud_url, 'dss_uuid': uuid,
-                                            'update_date': file.get('version')})
-        self.dss_client.put_bundle(bundle.uuid, bundle.get_version(), bundle_files)
