@@ -24,9 +24,9 @@ DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_MANIFEST', False)
 
 # TODO This is just for testing, remove explicit disabling
-DISABLE_BUNDLE_CREATE = False
-DISABLE_BUNDLE_UPDATE = False
-DISABLE_MANIFEST = True
+DISABLE_BUNDLE_CREATE = True
+DISABLE_BUNDLE_UPDATE = True
+DISABLE_MANIFEST = False
 
 
 DEFAULT_RABBIT_URL = os.path.expandvars(
@@ -53,16 +53,8 @@ RETRY_POLICY = {
     'max_retries': 60
 }
 
-if __name__ == '__main__':
-    logging.getLogger('receiver').setLevel(logging.INFO)
-    logging.getLogger('ingest').setLevel(logging.INFO)
-    logging.getLogger('ingest.api.dssapi').setLevel(logging.DEBUG)
 
-    format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:' \
-             '%(lineno)s %(funcName)s(): %(message)s'
-    logging.basicConfig(stream=sys.stdout, level=logging.WARNING,
-                        format=format)
-
+def setup_create_bundle_receiver():
     upload_client = StagingApi()
     dss_client = DssApi()
 
@@ -93,6 +85,22 @@ if __name__ == '__main__':
 
         exporter = IngestExporter(ingest_api=ingest_client, dss_api=dss_client, staging_service=staging_service)
         create_bundle_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
+        create_process = Process(target=create_bundle_receiver.run)
+        create_process.start()
+
+
+def setup_bundle_update_receiver():
+    upload_client = StagingApi()
+    dss_client = DssApi()
+
+    s2s_token_client = S2STokenClient()
+    gcp_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    s2s_token_client.setup_from_file(gcp_credentials_file)
+    token_manager = TokenManager(token_client=s2s_token_client)
+    ingest_client = IngestApi(token_manager=token_manager)
+
+    staging_info_repository = StagingInfoRepository(ingest_client)
+    staging_service = StagingService(upload_client, staging_info_repository)
 
     with Connection(DEFAULT_RABBIT_URL) as conn:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
@@ -114,6 +122,12 @@ if __name__ == '__main__':
         }
         update_bundle_receiver = UpdateBundleReceiver(connection=conn, queues=bundle_queues, exporter=exporter,
                                                       ingest_client=ingest_client, publish_config=conf)
+        update_process = Process(target=update_bundle_receiver.run)
+        update_process.start()
+
+
+def setup_manifest_receiver():
+    ingest_client = IngestApi()
 
     with Connection(DEFAULT_RABBIT_URL) as conn:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
@@ -133,15 +147,27 @@ if __name__ == '__main__':
 
         exporter = ManifestExporter(ingest_api=ingest_client)
         manifest_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
+        manifest_process = Process(target=manifest_receiver.run)
+        manifest_process.start()
+
+
+if __name__ == '__main__':
+    logging.getLogger('receiver').setLevel(logging.INFO)
+    logging.getLogger('ingest').setLevel(logging.INFO)
+    logging.getLogger('ingest.api.dssapi').setLevel(logging.DEBUG)
+
+    format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:' \
+             '%(lineno)s %(funcName)s(): %(message)s'
+    logging.basicConfig(stream=sys.stdout, level=logging.WARNING,
+                        format=format)
 
     if not DISABLE_BUNDLE_CREATE:
-        create_process = Process(target=create_bundle_receiver.run)
-        create_process.start()
+        setup_create_bundle_receiver()
 
     if not DISABLE_BUNDLE_UPDATE:
-        update_process = Process(target=update_bundle_receiver.run)
-        update_process.start()
+        setup_bundle_update_receiver()
 
     if not DISABLE_MANIFEST:
-        update_process = Process(target=manifest_receiver.run)
-        update_process.start()
+        setup_manifest_receiver()
+
+
