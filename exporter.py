@@ -16,10 +16,18 @@ from ingest.utils.token_manager import TokenManager
 from kombu import Connection, Exchange, Queue
 from multiprocessing.dummy import Process
 
+from exporter.manifest_exporter import ManifestExporter
 from receiver import CreateBundleReceiver, UpdateBundleReceiver
 
 DISABLE_BUNDLE_CREATE = os.environ.get('DISABLE_BUNDLE_CREATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
+DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_MANIFEST', False)
+
+# TODO This is just for testing, remove explicit disabling
+DISABLE_BUNDLE_CREATE = False
+DISABLE_BUNDLE_UPDATE = False
+DISABLE_MANIFEST = True
+
 
 DEFAULT_RABBIT_URL = os.path.expandvars(
     os.environ.get('RABBIT_URL', 'amqp://localhost:5672'))
@@ -106,10 +114,34 @@ if __name__ == '__main__':
         }
         update_bundle_receiver = UpdateBundleReceiver(connection=conn, queues=bundle_queues, exporter=exporter,
                                                       ingest_client=ingest_client, publish_config=conf)
+
+    with Connection(DEFAULT_RABBIT_URL) as conn:
+        bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
+        bundle_queues = [
+            Queue(ASSAY_QUEUE, bundle_exchange,
+                  routing_key=ASSAY_ROUTING_KEY),
+            Queue(ANALYSIS_QUEUE, bundle_exchange,
+                  routing_key=ANALYSIS_ROUTING_KEY)
+        ]
+
+        conf = {
+            'exchange': EXCHANGE,
+            'routing_key': ASSAY_COMPLETED_ROUTING_KEY,
+            'retry': True,
+            'retry_policy': RETRY_POLICY
+        }
+
+        exporter = ManifestExporter(ingest_api=ingest_client)
+        manifest_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
+
     if not DISABLE_BUNDLE_CREATE:
         create_process = Process(target=create_bundle_receiver.run)
         create_process.start()
 
     if not DISABLE_BUNDLE_UPDATE:
         update_process = Process(target=update_bundle_receiver.run)
+        update_process.start()
+
+    if not DISABLE_MANIFEST:
+        update_process = Process(target=manifest_receiver.run)
         update_process.start()

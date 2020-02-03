@@ -8,6 +8,8 @@ from ingest.exporter.exporter import Exporter
 from ingest.exporter.ingestexportservice import IngestExporter
 from kombu.mixins import ConsumerProducerMixin
 
+from exporter.manifest_exporter import ManifestExporter
+
 
 class Worker(ConsumerProducerMixin):
     def __init__(self, connection, queues):
@@ -60,8 +62,8 @@ class CreateBundleReceiver(BundleReceiver):
         try:
             self.logger.info('process received ' + body_dict["callbackLink"])
             self.logger.info('process index: ' + str(
-                    body_dict["index"]) + ', total processes: ' + str(
-                    body_dict["total"]))
+                body_dict["index"]) + ', total processes: ' + str(
+                body_dict["total"]))
 
             bundle_version = self._convert_timestamp(body_dict.get('versionTimestamp'))
 
@@ -97,7 +99,8 @@ class UpdateBundleReceiver(BundleReceiver):
         super(UpdateBundleReceiver, self).run()
 
     def on_message(self, body, message):
-        self.exporter.bundle_service.dss_client.init_dss_client() # TODO workaround for issue https://app.zenhub.com/workspaces/dcp-5ac7bcf9465cb172b77760d9/issues/humancellatlas/data-store/2216
+        self.exporter.bundle_service.dss_client.init_dss_client()  # TODO workaround for issue
+        # https://app.zenhub.com/workspaces/dcp-5ac7bcf9465cb172b77760d9/issues/humancellatlas/data-store/2216
         self.logger.info(f'Message received: {body}')
 
         self.logger.info('Ack-ing message...')
@@ -120,6 +123,51 @@ class UpdateBundleReceiver(BundleReceiver):
 
         if success:
             self.logger.info(f"Notifying state tracker of completed bundle: {body}")
+            self.notify_state_tracker(body_dict)
+            end = time.perf_counter()
+            time_to_export = end - start
+            self.logger.info('Finished! ' + str(message.delivery_tag))
+            self.logger.info('Export time (ms): ' + str(time_to_export))
+
+
+class ManifestReceiver(BundleReceiver):
+    def __init__(self, connection, queues, exporter: ManifestExporter, publish_config):
+        self.connection = connection
+        self.queues = queues
+        self.logger = logging.getLogger(f'{__name__}.ManifestReceiver')
+        self.publish_config = publish_config
+        self.exporter = exporter
+
+    def run(self):
+        self.logger.info("Running ManifestReceiver")
+        super(ManifestReceiver, self).run()
+
+    def on_message(self, body, message):
+        self.logger.info(f'Message received: {body}')
+
+        self.logger.info('Ack-ing message...')
+        message.ack()
+        self.logger.info('Acked!')
+
+        success = False
+        start = time.perf_counter()
+        body_dict = json.loads(body)
+
+        try:
+            self.logger.info('process received ' + body_dict["callbackLink"])
+            self.logger.info('process index: ' + str(
+                body_dict["index"]) + ', total processes: ' + str(
+                body_dict["total"]))
+
+            self.exporter.export(process_uuid=body_dict["documentUuid"], submission_uuid=body_dict["envelopeUuid"])
+
+            success = True
+        except Exception as e1:
+            self.logger.exception(str(e1))
+            self.logger.error(f"Failed to process the exporter message: {body} due to error: {str(e1)}")
+
+        if success:
+            self.logger.info(f"Notifying state tracker of completed manifest: {body}")
             self.notify_state_tracker(body_dict)
             end = time.perf_counter()
             time_to_export = end - start
