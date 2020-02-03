@@ -35,4 +35,4 @@ if __name__ == '__main__':
     submission_uuid = '6d821229-5591-46d6-abb6-2ac1c35eb18a'
 
     exporter = ManifestExporter(ingest_api)
-    exporter.export_bundle(process_uuid, submission_uuid)
+    exporter.export(process_uuid, submission_uuid)
