@@ -23,11 +23,6 @@ DISABLE_BUNDLE_CREATE = os.environ.get('DISABLE_BUNDLE_CREATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_MANIFEST', False)
 
-# TODO This is just for testing, remove explicit disabling
-DISABLE_BUNDLE_CREATE = True
-DISABLE_BUNDLE_UPDATE = True
-DISABLE_MANIFEST = False
-
 
 DEFAULT_RABBIT_URL = os.path.expandvars(
     os.environ.get('RABBIT_URL', 'amqp://localhost:5672'))
