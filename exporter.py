@@ -17,7 +17,7 @@ from kombu import Connection, Exchange, Queue
 from multiprocessing.dummy import Process
 
 from exporter.manifest_exporter import ManifestExporter
-from receiver import CreateBundleReceiver, UpdateBundleReceiver
+from receiver import CreateBundleReceiver, UpdateBundleReceiver, ManifestReceiver
 
 DISABLE_BUNDLE_CREATE = os.environ.get('DISABLE_BUNDLE_CREATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
@@ -146,7 +146,7 @@ def setup_manifest_receiver():
         }
 
         exporter = ManifestExporter(ingest_api=ingest_client)
-        manifest_receiver = CreateBundleReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
+        manifest_receiver = ManifestReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
         manifest_process = Process(target=manifest_receiver.run)
         manifest_process.start()
 
