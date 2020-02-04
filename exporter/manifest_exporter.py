@@ -26,13 +26,14 @@ if __name__ == '__main__':
     format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(format=format, stream=sys.stdout, level=logging.INFO)
     p = argparse.ArgumentParser()
-    p.add_argument("-i", "--submission_id", type=str, help="Ingest submission ID")
-    p.add_argument("-d", "--deployment", type=str, help="Deployment to check.",
-                   choices=["dev", "int", "staging", "prod"])
+    p.add_argument("-s", "--submission_uuid", type=str, help="Please specify the submission UUID")
+    p.add_argument("-p", "--process_uuid", type=str, help="Please specify the process UUID")
+    p.add_argument("-e", "--env", type=str, help="Please specify the environment where to run the script",
+                   choices=["dev", "integration", "staging", "prod"])
+    args = p.parse_args()
+    process_uuid = args.process_uuid
+    submission_uuid = args.submission_uuid
 
-    ingest_api = IngestApi(url='https://api.integration.archive.data.humancellatlas.org/')
-    process_uuid = '42799ef8-9f45-401a-bffd-3bcf61eed46c'
-    submission_uuid = '6d821229-5591-46d6-abb6-2ac1c35eb18a'
-
+    ingest_api = IngestApi(url=f'https://api.{args.env}.archive.data.humancellatlas.org/')
     exporter = ManifestExporter(ingest_api)
     exporter.export(process_uuid, submission_uuid)
