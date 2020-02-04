@@ -27,7 +27,9 @@ class ProcessInfo:
         self.input_bundle = None
 
 
-# TODO Design Assay Manifest structure, copy Bundle Manifest for now
+# TODO Reconsider to not do this for the archiver
+# If needed design the assay manifest structure
+# Use Bundle Manifest for now, bundle uuid and version will be null
 class AssayManifest:
     def __init__(self, envelopeUuid=None):
         self.envelopeUuid = envelopeUuid if envelopeUuid is not None else ''
