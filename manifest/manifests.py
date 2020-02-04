@@ -10,10 +10,26 @@ _metadata_type_attr_map = {
 }
 
 
-class FileManifest:
+class ProcessInfo:
+    def __init__(self):
+        self.project = {}
 
+        # uuid => object mapping
+        self.input_biomaterials = {}
+        self.derived_by_processes = {}
+        self.input_files = {}
+        self.derived_files = {}
+        self.protocols = {}
+        self.supplementary_files = {}
+        self.input_bundle = None
+
+
+# TODO Reconsider to not do this for the archiver
+# If needed design the assay manifest structure
+# Use Bundle Manifest for now, bundle uuid and version will be null
+class AssayManifest:
     def __init__(self, envelopeUuid=None):
-        self.envelopeUuid = envelopeUuid if envelopeUuid is not None else {}
+        self.envelopeUuid = envelopeUuid if envelopeUuid is not None else ''
         self.dataFiles = []
         self.fileBiomaterialMap = {}
         self.fileProcessMap = {}
@@ -33,3 +49,5 @@ class FileManifest:
                 file_map.update(entry)
             else:
                 raise KeyError(f'Cannot map unknown metadata type [{metadata_type}].')
+
+

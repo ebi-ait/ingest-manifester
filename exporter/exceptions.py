@@ -6,10 +6,6 @@ class InvalidBundleError(Exception):
     """There was a failure in bundle validation."""
 
 
-class MultipleProjectsError(Exception):
-    """A process should only have one project linked."""
-
-
 class NoUploadAreaFoundError(Exception):
     """Export couldn't be as no upload area found"""
 

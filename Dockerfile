@@ -14,6 +14,7 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 COPY exporter.py receiver.py ./
+COPY ./exporter ./exporter
 
 ENV INGEST_API=http://localhost:8080
 ENV RABBIT_URL=amqp://localhost:5672
