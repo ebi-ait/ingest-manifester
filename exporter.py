@@ -21,7 +21,7 @@ from receiver import CreateBundleReceiver, UpdateBundleReceiver, ManifestReceive
 
 DISABLE_BUNDLE_CREATE = os.environ.get('DISABLE_BUNDLE_CREATE', False)
 DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_BUNDLE_UPDATE', False)
-DISABLE_BUNDLE_UPDATE = os.environ.get('DISABLE_MANIFEST', False)
+DISABLE_MANIFEST = os.environ.get('DISABLE_MANIFEST', False)
 
 
 DEFAULT_RABBIT_URL = os.path.expandvars(
