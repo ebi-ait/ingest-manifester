@@ -60,9 +60,8 @@ def setup_manifest_receiver():
 
 
 if __name__ == '__main__':
-    logging.getLogger('receiver').setLevel(logging.INFO)
     logging.getLogger('ingest').setLevel(logging.INFO)
-    logging.getLogger('ingest.api.dssapi').setLevel(logging.DEBUG)
+    logging.getLogger('manifest').setLevel(logging.INFO)
 
     format = ' %(asctime)s  - %(name)s - %(levelname)s in %(filename)s:' \
              '%(lineno)s %(funcName)s(): %(message)s'
