@@ -8,8 +8,6 @@ from manifest.exporter import ManifestExporter
 from manifest.generator import ManifestGenerator
 from tests.mocks.ingest import MockIngestAPI
 
-BASE_PATH = os.path.dirname(__file__)
-
 
 class TestExporter(TestCase):
     def setUp(self) -> None:
