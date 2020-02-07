@@ -18,7 +18,6 @@ class ManifestGenerator:
     def get_all_process_info(self, process_resource):
         process_info = ProcessInfo()
         process_info.input_bundle = self._get_input_bundle(process_resource)
-
         process_info.project = self._get_project_info(process_resource)
 
         if not process_info.project:  # get from input bundle
