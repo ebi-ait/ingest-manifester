@@ -69,7 +69,7 @@ class ManifestGenerator:
 
         assay_manifest.dataFiles = list()
         assay_manifest.dataFiles = assay_manifest.dataFiles = list()
-        assay_manifest.dataFiles = [f['uuid']['uuid'] for f in files.values()]
+        assay_manifest.dataFiles = [f['dataFileUuid'] for f in files.values()]
 
         return assay_manifest
 
