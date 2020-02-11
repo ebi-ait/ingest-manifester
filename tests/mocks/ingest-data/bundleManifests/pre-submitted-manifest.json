@@ -2,8 +2,8 @@
   "bundleUuid": "3a7c13ba-da67-4a6d-9e8d-d670e81255bf",
   "envelopeUuid": "c2f94466-adee-4aac-b8d0-1e864fa5f8e8",
   "dataFiles": [
-    "33aa0769-c1cc-434e-a5bb-c166b4fa89df",
-    "2b6f539d-b2a2-445d-8c7e-96e2e525e670"
+    "uuid1",
+    "uuid2"
   ],
   "fileBiomaterialMap": {
     "b64f96ac-9ad7-45f5-b2f0-f1d8d30bb7c6": [

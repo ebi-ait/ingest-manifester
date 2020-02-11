@@ -17,6 +17,7 @@
     "uuid": "2b6f539d-b2a2-445d-8c7e-96e2e525e670"
   },
   "events": [],
+  "dataFileUuid": "uuid2",
   "accession": null,
   "validationState": "Valid",
   "validationErrors": [],

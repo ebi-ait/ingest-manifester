@@ -567,6 +567,7 @@
       "uuid": {
         "uuid": "33aa0769-c1cc-434e-a5bb-c166b4fa89df"
       },
+      "dataFileUuid": "uuid1",
       "events": [],
       "accession": null,
       "validationState": "Valid",
@@ -616,6 +617,7 @@
       "uuid": {
         "uuid": "2b6f539d-b2a2-445d-8c7e-96e2e525e670"
       },
+      "dataFileUuid": "uuid2",
       "events": [],
       "accession": null,
       "validationState": "Valid",
