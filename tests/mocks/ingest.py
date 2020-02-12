@@ -1,3 +1,6 @@
+from typing import Iterator
+
+
 class MockIngestAPI:
     def __init__(self, mock_entity_retriever):
         self.mock_entities = mock_entity_retriever
@@ -14,7 +17,7 @@ class MockIngestAPI:
                 return search_result["_embedded"][entity_type]
         return []
 
-    def related_entity_search(self, base_entity_uri, search_uri, related_entity_type):
+    def related_entity_search(self, base_entity_uri, search_uri, related_entity_type) -> dict:
         search_result = IngestEntitySearchResult(related_entity_type, search_uri)
         search_result.add_entities(self.mock_entities.get_related_entities(base_entity_uri, search_uri))
         return search_result.result
@@ -40,12 +43,12 @@ class IngestEntitySearchResult:
             }
         }
 
-    def add_entity(self, entity):
+    def add_entity(self, entity: dict):
         self.result['_embedded'][self.entity_type].append(entity)
         self.result['page']['totalElements'] = self.result['page']['totalElements'] + 1
         if self.result['page']['totalElements'] > self.result['page']['size']:
             self.result['page']['size'] = self.result['page']['size'] + 20
 
-    def add_entities(self, entities: list):
+    def add_entities(self, entities: Iterator[dict]):
         for entity in entities:
             self.add_entity(entity)
