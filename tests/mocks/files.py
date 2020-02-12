@@ -35,15 +35,11 @@ class MockEntityFiles:
 
     def get_entities_from_file(self, location: Path) -> list:
         full_path = Path(location)
-        results = []
         if full_path.exists() and full_path.is_file():
             with full_path.open('r') as file:
                 for line in file.readlines():
-                    if line.find('/'):
-                        entity = self.get_entity(line.split('/')[0].strip(), line.split('/')[1].strip())
-                        if entity:
-                            results.append(entity)
-        return results
+                    if line.find('/') > 0:
+                        yield self.get_entity(line.split('/')[0].strip(), line.split('/')[1].strip())
 
     @staticmethod
     def load_json_file(location: Path):
@@ -54,11 +50,7 @@ class MockEntityFiles:
 
     @staticmethod
     def load_json_files_from_dir(location: Path) -> list:
-        results = []
         if location.exists() and location.is_dir():
             files_in_path = (entry for entry in location.iterdir() if entry.is_file())
             for file_path in files_in_path:
-                file_content = MockEntityFiles.load_json_file(file_path)
-                if file_content:
-                    results.append(file_content)
-        return results
+                yield MockEntityFiles.load_json_file(file_path)
