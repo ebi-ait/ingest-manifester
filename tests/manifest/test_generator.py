@@ -60,5 +60,4 @@ class TestGenerator(TestCase):
                                                       submission_uuid='mock-submission')
 
         # then:
-        self.ingest.get_entity_by_uuid.assert_called_with('processes', 'mock-assay-process')
         self.assertEqual(example_manifest, actual_manifest.__dict__)
