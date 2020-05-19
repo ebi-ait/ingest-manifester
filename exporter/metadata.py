@@ -1,5 +1,6 @@
 import re
 from copy import deepcopy
+from typing import Optional
 
 
 class MetadataParseException(Exception):
@@ -22,12 +23,13 @@ class MetadataProvenance:
 class MetadataResource:
 
     def __init__(self, metadata_type, metadata_json, uuid, dcp_version,
-                 provenance: MetadataProvenance):
+                 provenance: Optional[MetadataProvenance], full_resource: Optional[dict] = None):
         self.metadata_json = metadata_json
         self.uuid = uuid
         self.dcp_version = dcp_version
         self.metadata_type = metadata_type
         self.provenance = provenance
+        self.full_resource = full_resource
 
     @staticmethod
     def from_dict(data: dict, require_provenance=True):
@@ -37,12 +39,12 @@ class MetadataResource:
             dcp_version = data['dcpVersion']
             metadata_type = data['type'].lower()
             provenance = MetadataResource._derive_provenance(data, require_provenance)
-            return MetadataResource(metadata_type, metadata_json, uuid, dcp_version, provenance)
+            return MetadataResource(metadata_type, metadata_json, uuid, dcp_version, provenance, full_resource=data)
         except (KeyError, TypeError) as e:
             raise MetadataParseException(e)
 
     @staticmethod
-    def _derive_provenance(data, require_provenance):
+    def _derive_provenance(data, require_provenance) -> Optional[MetadataProvenance]:
         try:
             provenance = MetadataResource.provenance_from_dict(data)
         except MetadataParseException:
@@ -57,7 +59,7 @@ class MetadataResource:
         try:
             uuid = data['uuid']['uuid']
             submission_date = data['submissionDate']
-            update_date = data['dcpVersion']
+            update_date = data['updateDate']
 
             # Populate the major and minor schema versions from the URL in the describedBy field
             schema_semver = re.findall(r'\d+\.\d+\.\d+', data["content"]["describedBy"])[0]
@@ -81,6 +83,10 @@ class MetadataResource:
             provenance = {'provenance': self.provenance.to_dict()}
             bundle_metadata.update(provenance)
         return bundle_metadata
+
+    def concrete_type(self) -> str:
+        return self.metadata_json["describedBy"].rsplit('/', 1)[-1]
+
 
 
 class MetadataService:
