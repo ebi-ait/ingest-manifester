@@ -2,7 +2,7 @@ from exporter.metadata import MetadataResource
 
 from copy import deepcopy
 from typing import List, Set, Dict, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -55,9 +55,9 @@ class Link:
 
         self.process_uuid = process_uuid
         self.process_type = process_type
-        self.inputs: Set[Input] = set()
-        self.outputs: Set[Output] = set()
-        self.protocols: Set[ProtocolLink] = set()
+        self.inputs: List[Input] = list()
+        self.outputs: List[Output] = list()
+        self.protocols: List[ProtocolLink] = list()
 
         for i in inputs:
             self.add_input(i)
@@ -71,17 +71,17 @@ class Link:
     def add_input(self, i: Input):
         if i.input_uuid not in self._input_uuids:
             self._input_uuids.add(i.input_uuid)
-            self.inputs.add(i)
+            self.inputs.append(i)
 
     def add_output(self, o: Output):
         if o.output_uuid not in self._outputs_uuids:
             self._outputs_uuids.add(o.output_uuid)
-            self.outputs.add(o)
+            self.outputs.append(o)
 
     def add_protocol(self, p: ProtocolLink):
         if p.protocol_uuid not in self._protocol_uuids:
             self._protocol_uuids.add(p.protocol_uuid)
-            self.protocols.add(p)
+            self.protocols.append(p)
 
     def combine_partial_link(self, link: 'Link'):
         if self.process_type == link.process_type:

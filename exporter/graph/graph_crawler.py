@@ -20,18 +20,20 @@ class GraphCrawler:
         self.ingest_client = ingest_client
 
     def experiment_graph_for_process(self, process: MetadataResource) -> ExperimentGraph:
-        empty_graph = ExperimentGraph()
-        return self.__crawl(process, empty_graph)
+        return self._crawl(process)
 
-    def __crawl(self, process: MetadataResource, partial_graph: ExperimentGraph) -> ExperimentGraph:
+    def _crawl(self, process: MetadataResource) -> ExperimentGraph:
+        partial_graph = ExperimentGraph()
+
         process_info = self.process_info(process)
         partial_graph.nodes.add_nodes(process_info.inputs + process_info.outputs + process_info.protocols + [process])
         partial_graph.links.add_link(GraphCrawler.link_for(process_info))
 
         processes_to_crawl = GraphCrawler.flatten([self.get_derived_by_processes(i) for i in process_info.inputs])
-        return reduce(lambda pg1, pg2: pg1.extend(pg2),
-                      map(lambda proc: self.__crawl(proc, partial_graph), processes_to_crawl),
-                      ExperimentGraph())
+
+        return reduce(lambda g1, g2: g1.extend(g2),
+                      map(lambda proc: self._crawl(proc), processes_to_crawl),
+                      partial_graph)
 
     @staticmethod
     def link_for(process_info: ProcessInfo):

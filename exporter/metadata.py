@@ -1,7 +1,7 @@
 import re
 from copy import deepcopy
 from typing import Optional
-
+from dataclasses import dataclass
 
 class MetadataParseException(Exception):
     pass
@@ -27,9 +27,15 @@ class MetadataResource:
         self.metadata_json = metadata_json
         self.uuid = uuid
         self.dcp_version = dcp_version
-        self.metadata_type = metadata_type
+        self.metadata_type = metadata_type  # TODO: use an enum type instead of string
         self.provenance = provenance
         self.full_resource = full_resource
+
+    def get_content(self):
+        if self.full_resource is not None:
+            return self.full_resource["content"]
+        else:
+            return self.metadata_json
 
     @staticmethod
     def from_dict(data: dict, require_provenance=True):
@@ -97,3 +103,22 @@ class MetadataService:
     def fetch_resource(self, resource_link: str) -> MetadataResource:
         raw_metadata = self.ingest_client.get_entity_by_callback_link(resource_link)
         return MetadataResource.from_dict(raw_metadata)
+
+@dataclass
+class DataFile:
+    uuid: str
+    dcp_version: str
+    file_name: str
+    cloud_url: str
+
+    @staticmethod
+    def from_file_metadata(file_metadata: MetadataResource) -> 'DataFile':
+        if file_metadata.full_resource is not None:
+            return DataFile(file_metadata.full_resource["dataFileUuid"],
+                            file_metadata.dcp_version,
+                            file_metadata.full_resource["fileName"],
+                            file_metadata.full_resource["cloudUrl"])
+        else:
+            raise MetadataParseException(f'Error: parsing DataFile from file MetadataResources requires non-empty'
+                                         f'"full_resource" field. Metadata:\n\n {file_metadata.metadata_json}')
+
