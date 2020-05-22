@@ -2,4 +2,7 @@ requests
 kombu
 pika
 jsonschema
+google-cloud-storage
+boto3
+boto3-stubs[s3]
 -e git+https://github.com/HumanCellAtlas/ingest-client.git@74472037#egg=hca_ingest

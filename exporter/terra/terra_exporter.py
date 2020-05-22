@@ -1,14 +1,14 @@
 from ingest.api.ingestapi import IngestApi
 from exporter.metadata import MetadataResource, DataFile
 from exporter.graph.graph_crawler import GraphCrawler
-from exporter.terra.gcs_staging_client import GcsStagingClient
+from exporter.terra.dcp_staging_client import DcpStagingClient
 
 
 class TerraExporter:
-    def __init__(self, ingest_client: IngestApi, graph_crawler: GraphCrawler, gcs_staging_client: GcsStagingClient):
+    def __init__(self, ingest_client: IngestApi, graph_crawler: GraphCrawler, dcp_staging_client: DcpStagingClient):
         self.ingest_client = ingest_client
         self.graph_crawler = graph_crawler
-        self.gcs_staging_client = gcs_staging_client
+        self.gcs_staging_client = dcp_staging_client
 
     def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version):
         process = self.get_process(process_uuid)

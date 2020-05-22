@@ -111,6 +111,13 @@ class DataFile:
     file_name: str
     cloud_url: str
 
+    def source_bucket(self) -> str:
+        url = "s3://bucket/thing/thing"
+        return self.cloud_url.split("//")[1].split("/")[0]
+
+    def source_key(self) -> str:
+        return self.cloud_url.split("//")[1].split("/", 1)[1]
+
     @staticmethod
     def from_file_metadata(file_metadata: MetadataResource) -> 'DataFile':
         if file_metadata.full_resource is not None:

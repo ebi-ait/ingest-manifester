@@ -123,6 +123,11 @@ class LinkSet:
     def get_links(self) -> List[Link]:
         return list(self.links.values())
 
+    def to_dict(self):
+        return dict(
+            links=[link.to_dict() for link in self.get_links()]
+        )
+
 
 class MetadataNodeSet:
 
