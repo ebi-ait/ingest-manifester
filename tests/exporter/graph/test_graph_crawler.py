@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from ingest.api.ingestapi import IngestApi
 from exporter.graph.graph_crawler import GraphCrawler
-from exporter.metadata import MetadataResource
+from exporter.metadata import MetadataResource, MetadataService
 
 from tests.mocks.ingest import MockIngestAPI
 from tests.mocks.files import MockEntityFiles
@@ -20,7 +20,7 @@ class GraphCrawlerTest(TestCase):
 
     def test_generate_experiment_graph(self):
         ingest_client = self.ingest
-        crawler = GraphCrawler(ingest_client)
+        crawler = GraphCrawler(MetadataService(ingest_client))
 
         test_assay_process = MetadataResource.from_dict(self.files.get_entity('processes', 'mock-assay-process'), False)
         experiment_graph = crawler.experiment_graph_for_process(test_assay_process)

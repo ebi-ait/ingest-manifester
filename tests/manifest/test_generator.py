@@ -40,7 +40,15 @@ class TestGenerator(TestCase):
         actual_process_info = generator.get_all_process_info(input_assay_process)
 
         # then:
-        self.assertEqual(example_process_info, actual_process_info.__dict__)
+        self.assertEqual(example_process_info["project"]["uuid"], actual_process_info.project["uuid"])
+        self.assertEqual(set(example_process_info["input_biomaterials"].keys()), set(actual_process_info.input_biomaterials.keys()))
+        self.assertEqual(set(example_process_info["derived_by_processes"].keys()), set(actual_process_info.derived_by_processes.keys()))
+        self.assertEqual(set(example_process_info["derived_files"].keys()), set(actual_process_info.derived_files.keys()))
+        self.assertEqual(set(example_process_info["protocols"].keys()), set(actual_process_info.protocols.keys()))
+
+
+
+
 
     def test_build_assay_manifest(self):
         # given:
