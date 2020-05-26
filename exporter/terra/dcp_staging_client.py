@@ -109,4 +109,10 @@ class DcpStagingClient:
                                           )
 
         def build(self) -> 'DcpStagingClient':
-            return DcpStagingClient(self.s3_client, self.gcs_client)
+            if not self.gcs_client:
+                raise Exception("gcs_client must be set")
+            elif not self.s3_client:
+                raise Exception("s3_client must be set")
+            else:
+                return DcpStagingClient(self.s3_client, self.gcs_client)
+
