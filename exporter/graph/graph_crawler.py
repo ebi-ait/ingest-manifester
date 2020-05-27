@@ -35,7 +35,7 @@ class GraphCrawler:
                       partial_graph)
 
     @staticmethod
-    def link_for(process_info: ProcessInfo):
+    def link_for(process_info: ProcessInfo) -> Link:
         link_inputs = [Input(i.concrete_type(), i.uuid) for i in process_info.inputs]
         link_outputs = [Output(o.concrete_type(), o.uuid) for o in process_info.outputs]
         link_protocols = [ProtocolLink(p.concrete_type(), p.uuid) for p in process_info.protocols]

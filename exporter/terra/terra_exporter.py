@@ -26,7 +26,7 @@ class TerraExporter:
 
         self.dcp_staging_client.write_metadata(project)
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes())
-        self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version)
+        self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
         self.dcp_staging_client.write_data_files(experiment_data_files)
 
     def export_update(self, metadata_urls: Iterable[str]):

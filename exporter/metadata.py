@@ -1,9 +1,14 @@
 import re
 from copy import deepcopy
-from typing import Optional, List, Iterable, Dict
+from typing import Optional, List, Dict
 from dataclasses import dataclass
 
+
 class MetadataParseException(Exception):
+    pass
+
+
+class MetadataException(Exception):
     pass
 
 
@@ -23,7 +28,7 @@ class MetadataProvenance:
 class MetadataResource:
 
     def __init__(self, metadata_type, metadata_json, uuid, dcp_version,
-                 provenance: Optional[MetadataProvenance], full_resource: Optional[dict] = None):
+                 provenance: MetadataProvenance, full_resource: dict):
         self.metadata_json = metadata_json
         self.uuid = uuid
         self.dcp_version = dcp_version
@@ -31,34 +36,25 @@ class MetadataResource:
         self.provenance = provenance
         self.full_resource = full_resource
 
-    def get_content(self):
-        if self.full_resource is not None:
-            return self.full_resource["content"]
+    def get_content(self, with_provenance=False) -> Dict:
+        content = deepcopy(self.full_resource["content"])
+        if with_provenance:
+            content["provenance"] = self.provenance.to_dict()
+            return content
         else:
-            return self.metadata_json
+            return content
 
     @staticmethod
-    def from_dict(data: dict, require_provenance=True):
+    def from_dict(data: dict):
         try:
             metadata_json = data['content']
             uuid = data['uuid']['uuid']
             dcp_version = data['dcpVersion']
             metadata_type = data['type'].lower()
-            provenance = MetadataResource._derive_provenance(data, require_provenance)
+            provenance = MetadataResource.provenance_from_dict(data)
             return MetadataResource(metadata_type, metadata_json, uuid, dcp_version, provenance, full_resource=data)
         except (KeyError, TypeError) as e:
             raise MetadataParseException(e)
-
-    @staticmethod
-    def _derive_provenance(data, require_provenance) -> Optional[MetadataProvenance]:
-        try:
-            provenance = MetadataResource.provenance_from_dict(data)
-        except MetadataParseException:
-            if require_provenance:
-                raise
-            else:
-                provenance = None
-        return provenance
 
     @staticmethod
     def provenance_from_dict(data: dict):
@@ -79,16 +75,6 @@ class MetadataResource:
 
     def get_staging_file_name(self):
         return f'{self.metadata_type}_{self.uuid}.json'
-
-    def to_bundle_metadata(self) -> dict:
-        bundle_metadata = dict()
-        content = deepcopy(self.metadata_json)
-        bundle_metadata.update(content)
-
-        if self.provenance:
-            provenance = {'provenance': self.provenance.to_dict()}
-            bundle_metadata.update(provenance)
-        return bundle_metadata
 
     def concrete_type(self) -> str:
         return self.metadata_json["describedBy"].rsplit('/', 1)[-1]
@@ -123,7 +109,7 @@ class MetadataService:
 
     @staticmethod
     def parse_metadata_resources(metadata_resources: List[Dict]) -> List[MetadataResource]:
-        return [MetadataResource.from_dict(m, True) for m in metadata_resources]
+        return [MetadataResource.from_dict(m) for m in metadata_resources]
 
 
 @dataclass
