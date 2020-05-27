@@ -73,9 +73,6 @@ class MetadataResource:
         except (KeyError, TypeError) as e:
             raise MetadataParseException(e)
 
-    def get_staging_file_name(self):
-        return f'{self.metadata_type}_{self.uuid}.json'
-
     def concrete_type(self) -> str:
         return self.metadata_json["describedBy"].rsplit('/', 1)[-1]
 
