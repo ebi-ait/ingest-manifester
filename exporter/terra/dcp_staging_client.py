@@ -8,6 +8,7 @@ from io import StringIO, BufferedReader
 
 from google.cloud import storage
 from mypy_boto3_s3 import S3Client
+from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
 import boto3
 import json
 
@@ -65,7 +66,8 @@ class DcpStagingClient:
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
         staging_bucket: storage.Bucket = self.gcs_client.bucket("test-ingest-terra", "terra-ingest")
         blob: storage.Blob = staging_bucket.blob(object_key)
-        blob.upload_from_file(data_stream)
+        if not blob.exists():
+            blob.upload_from_file(data_stream)
 
     def generate_links_json(self, link_set: LinkSet) -> Dict:
         latest_links_schema = self.schema_service.latest_links_schema()
@@ -77,18 +79,17 @@ class DcpStagingClient:
 
         return links_json
 
-
     @staticmethod
     def dict_to_json_stream(d: Dict) -> StringIO:
         return StringIO(json.dumps(d))
 
     @staticmethod
-    def s3_download_stream(s3_object: Dict) -> Streamable:
+    def s3_download_stream(s3_object: S3Object) -> Streamable:
         """
         The boto3 StreamingBody isn't really a file-like stream as purported in the documentation.
         This function returns a BufferedReader using the underlying protected _raw_stream of a StreamingBody
-        :param streaming_body:
-        :return:
+        :param s3_object:
+        :return: the S3 Object data as a BufferedReader stream
         """
         return BufferedReader(s3_object["Body"]._raw_stream, buffer_size=8192)  # 8kb
 

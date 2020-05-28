@@ -95,10 +95,10 @@ class MetadataService:
     def get_derived_files(self, process: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('derivedFiles', process.full_resource, 'files'))
 
-    def get_input_biomaterials(self, process: MetadataResource):
+    def get_input_biomaterials(self, process: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('inputBiomaterials', process.full_resource, 'biomaterials'))
 
-    def get_input_files(self, process: MetadataResource):
+    def get_input_files(self, process: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('inputFiles', process.full_resource, 'files'))
 
     def get_protocols(self, process: MetadataResource) -> List[MetadataResource]:
@@ -117,7 +117,6 @@ class DataFile:
     cloud_url: str
 
     def source_bucket(self) -> str:
-        url = "s3://bucket/thing/thing"
         return self.cloud_url.split("//")[1].split("/")[0]
 
     def source_key(self) -> str:

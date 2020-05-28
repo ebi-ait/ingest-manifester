@@ -25,5 +25,5 @@ class GraphCrawlerTest(TestCase):
         test_assay_process = MetadataResource.from_dict(self.files.get_entity('processes', 'mock-assay-process'))
         experiment_graph = crawler.experiment_graph_for_process(test_assay_process)
 
-        self.assertEquals(len(experiment_graph.nodes.get_nodes()), 12)
-        self.assertEquals(len(experiment_graph.links.get_links()), 3)
+        self.assertEqual(len(experiment_graph.nodes.get_nodes()), 12)
+        self.assertEqual(len(experiment_graph.links.get_links()), 3)
