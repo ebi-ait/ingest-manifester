@@ -8,9 +8,16 @@ from dataclasses import dataclass
 
 
 @dataclass
+class QueueConfig:
+    name: str
+    exchange: str
+    routing_key: str
+
+
+@dataclass
 class ConsumerConfig:
     handler: Callable
-    queues: List[Queue]
+    queues: List[QueueConfig]
 
 
 @dataclass
@@ -29,8 +36,14 @@ class _ConsumerMixin(ConsumerMixin):
         self.consumer_configs = consumer_configs
 
     def get_consumers(self, _, channel):
-        return [Consumer(channel.connection.channel(), queues=consumer_config.queues, callbacks=[consumer_config.handler])
+        return [Consumer(channel.connection.channel(),
+                         queues=[_ConsumerMixin.queue_from_config(q) for q in consumer_config.queues],
+                         callbacks=[consumer_config.handler])
                 for consumer_config in self.consumer_configs]
+
+    @staticmethod
+    def queue_from_config(queue_config: QueueConfig) -> Queue:
+        return Queue(queue_config.name, queue_config.exchange, queue_config.routing_key)
 
 
 class AsyncListener:

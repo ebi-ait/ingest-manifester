@@ -1,11 +1,12 @@
 from exporter.metadata import MetadataResource, MetadataService
 from exporter.graph.experiment_graph import ExperimentGraph, Link, Input, Output, ProtocolLink
-from typing import List, Iterable, Dict
+from typing import List, Iterable
 from functools import reduce
-from _operator import iconcat
+from operator import iconcat
 from dataclasses import dataclass
 
 from concurrent.futures import ThreadPoolExecutor
+
 
 @dataclass
 class ProcessInfo:
