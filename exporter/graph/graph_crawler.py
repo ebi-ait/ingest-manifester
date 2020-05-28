@@ -5,6 +5,7 @@ from functools import reduce
 from _operator import iconcat
 from dataclasses import dataclass
 
+from concurrent.futures import ThreadPoolExecutor
 
 @dataclass
 class ProcessInfo:
@@ -49,7 +50,14 @@ class GraphCrawler:
         return reduce(iconcat, list_of_lists, [])
 
     def process_info(self, process: MetadataResource) -> ProcessInfo:
-        inputs = self.metadata_service.get_input_biomaterials(process) + self.metadata_service.get_input_files(process)
-        outputs = self.metadata_service.get_derived_biomaterials(process) + self.metadata_service.get_derived_files(process)
-        protocols = self.metadata_service.get_protocols(process)
-        return ProcessInfo(process, inputs, outputs, protocols)
+        with ThreadPoolExecutor() as executor:
+            _input_biomaterials = executor.submit(lambda: self.metadata_service.get_input_biomaterials(process))
+            _input_files = executor.submit(lambda: self.metadata_service.get_input_files(process))
+            _output_biomaterials = executor.submit(lambda: self.metadata_service.get_derived_biomaterials(process))
+            _output_files = executor.submit(lambda: self.metadata_service.get_derived_files(process))
+            _protocols = executor.submit(lambda: self.metadata_service.get_protocols(process))
+
+            inputs = _input_biomaterials.result() + _input_files.result()
+            outputs = _output_biomaterials.result() + _output_files.result()
+            protocols = _protocols.result()
+            return ProcessInfo(process, inputs, outputs, protocols)
