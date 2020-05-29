@@ -18,15 +18,14 @@ Streamable = Union[BufferedReader, StringIO, IO[Any]]
 
 
 class GcsStorage:
-    def __init__(self, gcs_client: storage.Client, project: str, bucket_name: str, storage_prefix: str):
+    def __init__(self, gcs_client: storage.Client, bucket_name: str, storage_prefix: str):
         self.gcs_client = gcs_client
-        self.project = project
         self.bucket_name = bucket_name
         self.storage_prefix = storage_prefix
 
     def write(self, object_key: str, data_stream: Streamable):
         dest_key = f'{self.storage_prefix}/{object_key}'
-        staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name, self.project)
+        staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
         blob: storage.Blob = staging_bucket.blob(dest_key)
         if not blob.exists():
             blob.upload_from_file(data_stream)
@@ -142,9 +141,9 @@ class DcpStagingClient:
 
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
-                storage_credentials = Credentials.from_service_account_info(info)
+                storage_credentials: Credentials = Credentials.from_service_account_info(info)
                 gcs_client = storage.Client(project=gcp_project, credentials=storage_credentials)
-                self.gcs_storage = GcsStorage(gcs_client, gcp_project, bucket_name, bucket_prefix)
+                self.gcs_storage = GcsStorage(gcs_client, bucket_name, bucket_prefix)
 
                 return self
 
