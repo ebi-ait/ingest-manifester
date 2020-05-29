@@ -2,13 +2,23 @@
 import logging
 import os
 import sys
+from threading import Thread
 from multiprocessing.dummy import Process
 
 from ingest.api.ingestapi import IngestApi
+from exporter.metadata import MetadataService
+from exporter.graph.graph_crawler import GraphCrawler
+from exporter.terra.dcp_staging_client import DcpStagingClient
+from exporter.schema import SchemaService
+from exporter.terra.terra_export_listener import TerraExportListener
+from exporter.amqp import AsyncListener, AmqpConnConfig, QueueConfig, ConsumerConfig
+
 from kombu import Connection, Exchange, Queue
 
 from manifest.exporter import ManifestExporter
 from manifest.receiver import ManifestReceiver
+
+from exporter.terra.terra_exporter import TerraExporter
 
 DISABLE_MANIFEST = os.environ.get('DISABLE_MANIFEST', False)
 
@@ -19,12 +29,15 @@ EXCHANGE = 'ingest.bundle.exchange'
 EXCHANGE_TYPE = 'topic'
 
 ASSAY_QUEUE = 'ingest.bundle.assay.create'
+UPDATE_QUEUE = 'ingest.bundle.update.submitted'
 ANALYSIS_QUEUE = 'ingest.bundle.analysis.create'
 
 ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
+UPDATE_ROUTING_KEY = 'ingest-bundle.update.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
 ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
+
 
 RETRY_POLICY = {
     'interval_start': 0,
@@ -55,8 +68,45 @@ def setup_manifest_receiver():
 
         exporter = ManifestExporter(ingest_api=ingest_client)
         manifest_receiver = ManifestReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
-        manifest_process = Process(target=manifest_receiver.run)
+        manifest_process = Thread(target=manifest_receiver.run)
         manifest_process.start()
+
+        return manifest_process
+
+
+def setup_terra_exporter():
+    ingest_api_url = os.environ.get('INGEST_API', 'localhost:8080')
+    aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
+    aws_access_key_secret = os.environ['AWS_ACCESS_KEY_SECRET']
+    gcs_svc_credentials_path = os.environ['GCP_SVC_ACCOUNT_KEY_PATH']
+    gcp_project = os.environ['GCP_PROJECT']
+
+    ingest_client = IngestApi(ingest_api_url)
+    metadata_service = MetadataService(ingest_client)
+    schema_service = SchemaService(ingest_client)
+    graph_crawler = GraphCrawler(metadata_service)
+    dcp_staging_client = DcpStagingClient\
+                            .Builder()\
+                            .with_schema_service(schema_service)\
+                            .aws_access_key(aws_access_key_id, aws_access_key_secret)\
+                            .with_gcs_service_credentials(gcs_svc_credentials_path, gcp_project)\
+                            .build()
+
+    terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)
+
+    rabbit_host = os.environ.get('RABBIT_HOST', 'localhost')
+    rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
+    amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
+    experiment_queue_config = QueueConfig(ASSAY_QUEUE, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
+    update_queue_config = QueueConfig(UPDATE_QUEUE, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
+
+    listener = AsyncListener(amqp_conn_config)
+    terra_exporter_listener = TerraExportListener(terra_exporter, listener, experiment_queue_config, update_queue_config)
+
+    terra_exporter_listener_process = Thread(target=lambda: terra_exporter_listener.start())
+    terra_exporter_listener_process.start()
+
+    return terra_exporter_listener_process
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-from kombu import Queue, Consumer, Connection
+from kombu import Queue, Exchange, Consumer, Connection
 from kombu.mixins import ConsumerMixin
 from concurrent.futures import ThreadPoolExecutor
 
@@ -10,14 +10,15 @@ from dataclasses import dataclass
 @dataclass
 class QueueConfig:
     name: str
-    exchange: str
     routing_key: str
-
+    exchange: str
+    exchange_type: str
 
 @dataclass
 class ConsumerConfig:
     handler: Callable
     queues: List[QueueConfig]
+    tag: str
 
 
 @dataclass
@@ -38,12 +39,16 @@ class _ConsumerMixin(ConsumerMixin):
     def get_consumers(self, _, channel):
         return [Consumer(channel.connection.channel(),
                          queues=[_ConsumerMixin.queue_from_config(q) for q in consumer_config.queues],
-                         callbacks=[consumer_config.handler])
+                         callbacks=[consumer_config.handler],
+                         tag_prefix=consumer_config.tag)
                 for consumer_config in self.consumer_configs]
+
+
 
     @staticmethod
     def queue_from_config(queue_config: QueueConfig) -> Queue:
-        return Queue(queue_config.name, queue_config.exchange, queue_config.routing_key)
+        exchange = Exchange(queue_config.exchange, queue_config.exchange_type)
+        return Queue(queue_config.name, exchange, queue_config.routing_key)
 
 
 class AsyncListener:
@@ -69,6 +74,7 @@ class AsyncListener:
     @staticmethod
     def async_on_message(on_message_fn: Callable, executor: ThreadPoolExecutor) -> Callable:
         """
+        Returns an async version of a kombu on_message function
         :param on_message_fn:
         :param executor:
         :return: a function that, when called, executes the on_message_fn asynchronously
@@ -81,7 +87,8 @@ class AsyncListener:
     def run(self):
         with ThreadPoolExecutor() as executor:
             async_consumer_configs = [ConsumerConfig(AsyncListener.async_on_message(c.handler, executor),
-                                                     c.queues)
+                                                     c.queues,
+                                                     c.tag)
                                       for c in self._consumer_configs]
             with Connection(self.amqp_conn_config.broker_url()) as conn:
                 consumer_mixin = _ConsumerMixin(conn, async_consumer_configs)
