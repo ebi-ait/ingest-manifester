@@ -1,12 +1,13 @@
 from exporter.metadata import MetadataResource, DataFile
 from exporter.graph.experiment_graph import LinkSet
-from exporter.schema import SchemaResource, SchemaService
+from exporter.schema import SchemaService
 from typing import Iterable, IO, Dict, Any, Union
 
 from copy import deepcopy
 from io import StringIO, BufferedReader
 
 from google.cloud import storage
+from google.oauth2.service_account import Credentials
 from mypy_boto3_s3 import S3Client
 from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
 import boto3
@@ -16,15 +17,30 @@ import json
 Streamable = Union[BufferedReader, StringIO, IO[Any]]
 
 
+class GcsStorage:
+    def __init__(self, gcs_client: storage.Client, project: str, bucket_name: str, storage_prefix: str):
+        self.gcs_client = gcs_client
+        self.project = project
+        self.bucket_name = bucket_name
+        self.storage_prefix = storage_prefix
+
+    def write(self, object_key: str, data_stream: Streamable):
+        dest_key = f'{self.storage_prefix}/{object_key}'
+        staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name, self.project)
+        blob: storage.Blob = staging_bucket.blob(dest_key)
+        if not blob.exists():
+            blob.upload_from_file(data_stream)
+
+
 class DcpStagingException(Exception):
     pass
 
 
 class DcpStagingClient:
 
-    def __init__(self, s3_client: S3Client, gcs_client: storage.Client, schema_service: SchemaService):
+    def __init__(self, s3_client: S3Client, gcs_storage: GcsStorage, schema_service: SchemaService):
         self.s3_client = s3_client
-        self.gcs_client = gcs_client
+        self.gcs_storage = gcs_storage
         self.schema_service = schema_service
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource]):
@@ -64,10 +80,7 @@ class DcpStagingClient:
         self.write_to_staging_bucket(dest_object_key, s3_object_stream)
 
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
-        staging_bucket: storage.Bucket = self.gcs_client.bucket("test-ingest-terra", "terra-ingest")
-        blob: storage.Blob = staging_bucket.blob(object_key)
-        if not blob.exists():
-            blob.upload_from_file(data_stream)
+        self.gcs_storage.write(object_key, data_stream)
 
     def generate_links_json(self, link_set: LinkSet) -> Dict:
         latest_links_schema = self.schema_service.latest_links_schema()
@@ -121,15 +134,21 @@ class DcpStagingClient:
 
     class Builder:
         def __init__(self):
-            self.gcs_client = None
+            self.gcs_storage = None
             self.s3_client = None
             self.schema_service = None
 
-        def with_gcs_service_credentials(self, service_account_credentials_path: str, gcp_project: str):
-            self.gcs_client = storage.Client.from_service_account_json(service_account_credentials_path, project=gcp_project)
-            return self
+        def with_gcs_info(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str) -> 'DcpStagingClient.Builder':
 
-        def aws_access_key(self, aws_access_key_id: str, aws_access_key_secret: str):
+            with open(service_account_credentials_path) as source:
+                info = json.load(source)
+                storage_credentials = Credentials.from_service_account_info(info)
+                gcs_client = storage.Client(project=gcp_project, credentials=storage_credentials)
+                self.gcs_storage = GcsStorage(gcs_client, gcp_project, bucket_name, bucket_prefix)
+
+                return self
+
+        def aws_access_key(self, aws_access_key_id: str, aws_access_key_secret: str) -> 'DcpStagingClient.Builder':
             self.s3_client = boto3.client('s3',
                                           aws_access_key_id=aws_access_key_id,
                                           aws_secret_access_key=aws_access_key_secret,
@@ -137,17 +156,17 @@ class DcpStagingClient:
                                           )
             return self
 
-        def with_schema_service(self, schema_service: SchemaService):
+        def with_schema_service(self, schema_service: SchemaService) -> 'DcpStagingClient.Builder':
             self.schema_service = schema_service
             return self
 
         def build(self) -> 'DcpStagingClient':
-            if not self.gcs_client:
-                raise Exception("gcs_client must be set")
+            if not self.gcs_storage:
+                raise Exception("gcs_storage must be set")
             elif not self.s3_client:
                 raise Exception("s3_client must be set")
             elif not self.schema_service:
                 raise Exception("schema_service must be set")
             else:
-                return DcpStagingClient(self.s3_client, self.gcs_client, self.schema_service)
+                return DcpStagingClient(self.s3_client, self.gcs_storage, self.schema_service)
 
