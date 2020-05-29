@@ -3,15 +3,14 @@ import logging
 import os
 import sys
 from threading import Thread
-from multiprocessing.dummy import Process
 
 from ingest.api.ingestapi import IngestApi
 from exporter.metadata import MetadataService
 from exporter.graph.graph_crawler import GraphCrawler
 from exporter.terra.dcp_staging_client import DcpStagingClient
 from exporter.schema import SchemaService
-from exporter.terra.terra_export_listener import TerraExportListener
-from exporter.amqp import AsyncListener, AmqpConnConfig, QueueConfig, ConsumerConfig
+from exporter.terra.terra_listener import TerraListener
+from exporter.amqp import AmqpConnConfig, QueueConfig
 
 from kombu import Connection, Exchange, Queue
 
@@ -28,9 +27,11 @@ DEFAULT_RABBIT_URL = os.path.expandvars(
 EXCHANGE = 'ingest.bundle.exchange'
 EXCHANGE_TYPE = 'topic'
 
-ASSAY_QUEUE = 'ingest.bundle.assay.create'
-UPDATE_QUEUE = 'ingest.bundle.update.submitted'
-ANALYSIS_QUEUE = 'ingest.bundle.analysis.create'
+ASSAY_QUEUE_MANIFEST = 'ingest.manifests.assays.new'
+EXPERIMENT_QUEUE_TERRA = 'ingest.terra.experiments.new'
+
+UPDATE_QUEUE_TERRA = 'ingest.terra.updates.new'
+ANALYSIS_QUEUE_MANIFESTS = 'ingest.manifests.analysis.new'
 
 ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
 UPDATE_ROUTING_KEY = 'ingest-bundle.update.submitted'
@@ -47,15 +48,15 @@ RETRY_POLICY = {
 }
 
 
-def setup_manifest_receiver():
+def setup_manifest_receiver() -> Thread:
     ingest_client = IngestApi()
 
     with Connection(DEFAULT_RABBIT_URL) as conn:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
         bundle_queues = [
-            Queue(ASSAY_QUEUE, bundle_exchange,
+            Queue(ASSAY_QUEUE_MANIFEST, bundle_exchange,
                   routing_key=ASSAY_ROUTING_KEY),
-            Queue(ANALYSIS_QUEUE, bundle_exchange,
+            Queue(ANALYSIS_QUEUE_MANIFESTS, bundle_exchange,
                   routing_key=ANALYSIS_ROUTING_KEY)
         ]
 
@@ -74,36 +75,37 @@ def setup_manifest_receiver():
         return manifest_process
 
 
-def setup_terra_exporter():
+def setup_terra_exporter() -> Thread:
     ingest_api_url = os.environ.get('INGEST_API', 'localhost:8080')
     aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
     aws_access_key_secret = os.environ['AWS_ACCESS_KEY_SECRET']
     gcs_svc_credentials_path = os.environ['GCP_SVC_ACCOUNT_KEY_PATH']
     gcp_project = os.environ['GCP_PROJECT']
+    terra_bucket_name = os.environ['TERRA_BUCKET_NAME']
+    terra_bucket_prefix = os.environ['TERRA_BUCKET_PREFIX']
 
     ingest_client = IngestApi(ingest_api_url)
     metadata_service = MetadataService(ingest_client)
     schema_service = SchemaService(ingest_client)
     graph_crawler = GraphCrawler(metadata_service)
-    dcp_staging_client = DcpStagingClient\
-                            .Builder()\
-                            .with_schema_service(schema_service)\
-                            .aws_access_key(aws_access_key_id, aws_access_key_secret)\
-                            .with_gcs_service_credentials(gcs_svc_credentials_path, gcp_project)\
-                            .build()
+    dcp_staging_client = (DcpStagingClient
+                          .Builder()
+                          .with_schema_service(schema_service)
+                          .aws_access_key(aws_access_key_id, aws_access_key_secret)
+                          .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
+                          .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)
 
     rabbit_host = os.environ.get('RABBIT_HOST', 'localhost')
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
     amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
-    experiment_queue_config = QueueConfig(ASSAY_QUEUE, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
-    update_queue_config = QueueConfig(UPDATE_QUEUE, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
+    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
+    update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
 
-    listener = AsyncListener(amqp_conn_config)
-    terra_exporter_listener = TerraExportListener(terra_exporter, listener, experiment_queue_config, update_queue_config)
+    terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config)
 
-    terra_exporter_listener_process = Thread(target=lambda: terra_exporter_listener.start())
+    terra_exporter_listener_process = Thread(target=lambda: terra_listener.run())
     terra_exporter_listener_process.start()
 
     return terra_exporter_listener_process
@@ -120,3 +122,4 @@ if __name__ == '__main__':
 
     if not DISABLE_MANIFEST:
         setup_manifest_receiver()
+        setup_terra_exporter()
