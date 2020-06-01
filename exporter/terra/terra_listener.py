@@ -27,7 +27,7 @@ class ExperimentMessage:
     def from_dict(data: Dict) -> 'ExperimentMessage':
         try:
             return ExperimentMessage(data["documentUuid"],
-                                     data["submissionUuid"],
+                                     data["envelopeUuid"],
                                      data["bundleUuid"],
                                      data["versionTimestamp"])
         except (KeyError, TypeError) as e:
@@ -56,10 +56,12 @@ class _TerraListener(ConsumerMixin):
 
     def get_consumers(self, _consumer: Type[Consumer], channel) -> List[Consumer]:
         experiment_consumer = _consumer([_TerraListener.queue_from_config(self.experiment_queue_config)],
-                                        callbacks=[self.experiment_message_handler])
+                                        callbacks=[self.experiment_message_handler],
+                                        prefetch_count=1)
 
         update_consumer = _consumer([_TerraListener.queue_from_config(self.update_queue_config)],
-                                    callbacks=[self.update_message_handler])
+                                    callbacks=[self.update_message_handler],
+                                    prefetch_count=1)
 
         return [experiment_consumer, update_consumer]
 

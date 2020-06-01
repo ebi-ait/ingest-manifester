@@ -1,6 +1,6 @@
 import re
 from copy import deepcopy
-from typing import Optional, List, Dict
+from typing import List, Dict
 from dataclasses import dataclass
 
 
