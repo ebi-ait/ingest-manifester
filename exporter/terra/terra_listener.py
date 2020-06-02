@@ -22,6 +22,8 @@ class ExperimentMessage:
     submission_uuid: str
     experiment_uuid: str
     experiment_version: str
+    experiment_index: int
+    total: int
 
     @staticmethod
     def from_dict(data: Dict) -> 'ExperimentMessage':
@@ -29,7 +31,9 @@ class ExperimentMessage:
             return ExperimentMessage(data["documentUuid"],
                                      data["envelopeUuid"],
                                      data["bundleUuid"],
-                                     data["versionTimestamp"])
+                                     data["versionTimestamp"],
+                                     data["index"],
+                                     data["total"])
         except (KeyError, TypeError) as e:
             raise ExperimentMessageParseExpection(e)
 
@@ -53,6 +57,7 @@ class _TerraListener(ConsumerMixin):
         self.executor = executor
 
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
     def get_consumers(self, _consumer: Type[Consumer], channel) -> List[Consumer]:
         experiment_consumer = _consumer([_TerraListener.queue_from_config(self.experiment_queue_config)],
@@ -71,9 +76,9 @@ class _TerraListener(ConsumerMixin):
     def _experiment_message_handler(self, body: str, msg: Message):
         try:
             exp = ExperimentMessage.from_dict(json.loads(body))
-
+            self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
             self.terra_exporter.export(exp.process_uuid, exp.submission_uuid, exp.experiment_uuid, exp.experiment_version)
-            self.logger.info(f'Exported experiment for process uuid {exp.process_uuid}')
+            self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
 
             msg.ack()
         except Exception as e:

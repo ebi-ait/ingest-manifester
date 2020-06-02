@@ -122,4 +122,5 @@ if __name__ == '__main__':
 
     if not DISABLE_MANIFEST:
         setup_manifest_receiver()
-        setup_terra_exporter()
+
+    setup_terra_exporter()
