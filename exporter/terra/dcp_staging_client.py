@@ -108,22 +108,36 @@ class DcpStagingClient:
     @staticmethod
     def convert_file_metadata(file_metadata: MetadataResource) -> MetadataResource:
         """
-        This function is file-schema aware, and must transform the filename property to
-        the form of {dataFileUuid}_{dataFileVersion}_{filename}.
+        This function is file-schema aware, and must:
+
+        (i) transform the filename property to the form of {dataFileUuid}_{dataFileVersion}_{filename}.
+        (ii) add information such as file sizes, checksums, and content-type
 
         The dataFileVersion isn't defined in ingest, so we'll re-use the dcpVersion
         of the file_metadata here
         :return: DCPv2 MVP-ready file metadata
         """
+
         if file_metadata.full_resource is not None:
-            data_file_uuid = file_metadata.full_resource["dataFileUuid"]
+            data_file = DataFile.from_file_metadata(file_metadata)
+            data_file_uuid = data_file.uuid
             data_file_version = file_metadata.dcp_version
-            filename = file_metadata.full_resource["content"]["file_core"]["file_name"]
+            filename = data_file.file_name
 
             new_file_metadata = deepcopy(file_metadata)
+
             new_name = f'{data_file_uuid}_{data_file_version}_{filename}'
-            new_file_metadata.full_resource = file_metadata.full_resource
             new_file_metadata.full_resource["content"]["file_core"]["file_name"] = new_name
+
+            file_integrity = dict()
+            file_integrity["sha256"] = data_file.checksums.sha256
+            file_integrity["crc32c"] = data_file.checksums.crc32c
+            file_integrity["sha1"] = data_file.checksums.sha1
+            file_integrity["s3_etag"] = data_file.checksums.s3_etag
+            file_integrity["size"] = data_file.size
+            file_integrity["content_type"] = data_file.content_type.split(";")[0]
+
+            new_file_metadata.full_resource["content"]["file_core"]["file_integrity"] = file_integrity
 
             return new_file_metadata
         else:

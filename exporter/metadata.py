@@ -1,6 +1,6 @@
 import re
 from copy import deepcopy
-from typing import List, Dict
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 
@@ -110,11 +110,34 @@ class MetadataService:
 
 
 @dataclass
+class FileChecksums:
+    sha256: str
+    crc32c: str
+    sha1: Optional[str]
+    s3_etag: Optional[str]
+
+    @staticmethod
+    def from_dict(data: Dict) -> 'FileChecksums':
+        try:
+            sha256 = data["sha256"]
+            crc32c = data["crc32c"]
+            sha1 = data["sha1"]
+            s3_etag = data["s3_etag"]
+
+            return FileChecksums(sha256, crc32c, sha1, s3_etag)
+        except (KeyError, TypeError) as e:
+            raise MetadataParseException(e)
+
+
+@dataclass
 class DataFile:
     uuid: str
     dcp_version: str
     file_name: str
     cloud_url: str
+    content_type: str
+    size: int
+    checksums: FileChecksums
 
     def source_bucket(self) -> str:
         return self.cloud_url.split("//")[1].split("/")[0]
@@ -125,10 +148,16 @@ class DataFile:
     @staticmethod
     def from_file_metadata(file_metadata: MetadataResource) -> 'DataFile':
         if file_metadata.full_resource is not None:
-            return DataFile(file_metadata.full_resource["dataFileUuid"],
-                            file_metadata.dcp_version,
-                            file_metadata.full_resource["fileName"],
-                            file_metadata.full_resource["cloudUrl"])
+            try:
+                return DataFile(file_metadata.full_resource["dataFileUuid"],
+                                file_metadata.dcp_version,
+                                file_metadata.full_resource["fileName"],
+                                file_metadata.full_resource["cloudUrl"],
+                                file_metadata.full_resource["fileContentType"],
+                                file_metadata.full_resource["size"],
+                                FileChecksums.from_dict(file_metadata.full_resource["checksums"]))
+            except (KeyError, TypeError) as e:
+                raise MetadataParseException(e)
         else:
             raise MetadataParseException(f'Error: parsing DataFile from file MetadataResources requires non-empty'
                                          f'"full_resource" field. Metadata:\n\n {file_metadata.metadata_json}')
