@@ -33,10 +33,10 @@ class ExperimentGraphTest(TestCase):
                             TestUtils.gen_supplementary_file_link("mock-entity-uuid-1")])
 
         links_dict = link_set.to_dict()
-        suppl_link_dicts = [link_dict for link_dict in links_dict
+        suppl_link_dicts = [link_dict for link_dict in links_dict["links"]
                             if link_dict["link_type"] == "supplementary_file_link"]
 
-        process_link_dicts = [link_dict for link_dict in links_dict
+        process_link_dicts = [link_dict for link_dict in links_dict["links"]
                               if link_dict["link_type"] == "process_link"]
 
         self.assertEqual(len(suppl_link_dicts), 1)

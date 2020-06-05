@@ -8,6 +8,8 @@ from manifest.manifests import ProcessInfo
 from tests.mocks.ingest import MockIngestAPI
 from tests.mocks.files import MockEntityFiles
 
+import json
+
 
 def process_info_converter(process_info: dict) -> ProcessInfo:
     convert = ProcessInfo()
@@ -45,23 +47,6 @@ class TestGenerator(TestCase):
         self.assertEqual(set(example_process_info["derived_by_processes"].keys()), set(actual_process_info.derived_by_processes.keys()))
         self.assertEqual(set(example_process_info["derived_files"].keys()), set(actual_process_info.derived_files.keys()))
         self.assertEqual(set(example_process_info["protocols"].keys()), set(actual_process_info.protocols.keys()))
-
-
-
-
-
-    def test_build_assay_manifest(self):
-        # given:
-        generator = ManifestGenerator(ingest_api=self.ingest)
-        input_process_info = self.files.get_entity('processes', 'example-process-info')
-        example_manifest = self.files.get_entity('bundleManifests', 'example-assay-manifest')
-
-        # when:
-        converted_process_info = process_info_converter(input_process_info)
-        actual_manifest = generator.build_assay_manifest(converted_process_info, 'mock-submission')
-
-        # then:
-        self.assertEqual(example_manifest, actual_manifest.__dict__)
 
     def test_generate_manifest(self):
         # given:

@@ -119,8 +119,8 @@ class MetadataService:
 class FileChecksums:
     sha256: str
     crc32c: str
-    sha1: Optional[str]
-    s3_etag: Optional[str]
+    sha1: str
+    s3_etag: str
 
     @staticmethod
     def from_dict(data: Dict) -> 'FileChecksums':
