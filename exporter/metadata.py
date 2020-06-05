@@ -3,6 +3,8 @@ from copy import deepcopy
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
+from ingest.api.ingestapi import IngestApi
+
 
 class MetadataParseException(Exception):
     pass
@@ -79,7 +81,7 @@ class MetadataResource:
 
 class MetadataService:
 
-    def __init__(self, ingest_client):
+    def __init__(self, ingest_client: IngestApi):
         self.ingest_client = ingest_client
 
     def fetch_resource(self, resource_link: str) -> MetadataResource:
@@ -103,6 +105,10 @@ class MetadataService:
 
     def get_protocols(self, process: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('protocols', process.full_resource, 'protocols'))
+
+    def get_supplementary_files(self, metadata: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('supplementaryFiles', metadata.full_resource, 'files'))
+
 
     @staticmethod
     def parse_metadata_resources(metadata_resources: List[Dict]) -> List[MetadataResource]:

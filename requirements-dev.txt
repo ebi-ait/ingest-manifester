@@ -1,3 +1,4 @@
 mock
 nose
+mypy
 -r requirements.txt

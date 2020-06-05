@@ -1,7 +1,7 @@
 from exporter.metadata import MetadataResource
 
 from copy import deepcopy
-from typing import List, Set, Dict, Iterable
+from typing import List, Set, Dict, Iterable, Any, Union
 from dataclasses import dataclass
 
 
@@ -45,7 +45,7 @@ class Output:
         )
 
 
-class Link:
+class ProcessLink:
 
     def __init__(self, process_uuid: str, process_type: str,
                  inputs: Iterable[Input], outputs: Iterable[Output], protocols: Iterable[ProtocolLink]):
@@ -83,25 +83,55 @@ class Link:
             self._protocol_uuids.add(p.protocol_uuid)
             self.protocols.append(p)
 
-    def combine_partial_link(self, link: 'Link'):
-        if self.process_type == link.process_type:
-            for i in link.inputs:
-                self.add_input(i)
-            for o in link.outputs:
-                self.add_output(o)
-            for p in link.protocols:
-                self.add_protocol(p)
-        else:
-            raise Exception(f'Cannot combine link (process_type: {self.process_type} with link of process_type {link.process_type}')
-
     def to_dict(self) -> Dict:
         return dict(
+            link_type="process_link",
             process_id=self.process_uuid,
             process_type=self.process_type,
             inputs=[i.to_dict() for i in self.inputs],
             outputs=[o.to_dict() for o in self.outputs],
             protocols=[p.to_dict() for p in self.protocols]
         )
+
+
+@dataclass
+class SupplementedEntity:
+    entity_type: str
+    entity_id: str
+
+    def to_dict(self) -> Dict[str, str]:
+        return dict(
+            entity_type=self.entity_type,
+            entity_id=self.entity_id
+        )
+
+
+@dataclass
+class SupplementaryFile:
+    file_type: str
+    file_id: str
+
+    def to_dict(self) -> Dict[str, str]:
+        return dict(
+            file_type=self.file_type,
+            file_id=self.file_id
+        )
+
+
+@dataclass
+class SupplementaryFileLink:
+    supplemented_entity: SupplementedEntity
+    files: Iterable[SupplementaryFile]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return dict(
+            link_type="supplementary_file_link",
+            entity=self.supplemented_entity.to_dict(),
+            files=[file.to_dict() for file in self.files]
+        )
+
+
+Link = Union[ProcessLink, SupplementaryFileLink]
 
 
 class LinkSet:
@@ -114,11 +144,12 @@ class LinkSet:
             self.add_link(link)
 
     def add_link(self, link: Link):
-        link_uuid = link.process_uuid
-        if link_uuid in self.links:
-            self.links[link_uuid].combine_partial_link(link)
+        if isinstance(link, ProcessLink):
+            link_uuid = link.process_uuid
         else:
-            self.links[link_uuid] = link
+            link_uuid = link.supplemented_entity.entity_id
+
+        self.links[link_uuid] = link
 
     def get_links(self) -> List[Link]:
         return list(self.links.values())
@@ -132,7 +163,7 @@ class LinkSet:
 class MetadataNodeSet:
 
     def __init__(self):
-        self.obj_uuids = set()  # the uuid of a link is just the uuid of the process denoting the link
+        self.obj_uuids = set()
         self.objs = []
 
     def __contains__(self, item: MetadataResource):

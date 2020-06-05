@@ -21,10 +21,9 @@ class TerraExporter:
         submission = self.get_submission(submission_uuid)
         project = self.project_for_submission(submission)
 
-        experiment_graph = self.graph_crawler.experiment_graph_for_process(process)
+        experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
         experiment_data_files = [DataFile.from_file_metadata(m) for m in experiment_graph.nodes.get_nodes() if m.metadata_type == "file"]
 
-        self.dcp_staging_client.write_metadata(project)
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes())
         self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
         self.dcp_staging_client.write_data_files(experiment_data_files)
