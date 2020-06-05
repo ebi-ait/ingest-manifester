@@ -129,7 +129,8 @@ class DcpStagingClient:
             new_name = f'{data_file_uuid}_{data_file_version}_{filename}'
             new_file_metadata.full_resource["content"]["file_core"]["file_name"] = new_name
 
-            file_integrity = dict()
+            file_integrity: Dict[str, Any] = dict()
+
             file_integrity["sha256"] = data_file.checksums.sha256
             file_integrity["crc32c"] = data_file.checksums.crc32c
             file_integrity["sha1"] = data_file.checksums.sha1
@@ -137,7 +138,7 @@ class DcpStagingClient:
             file_integrity["size"] = data_file.size
             file_integrity["content_type"] = data_file.content_type.split(";")[0]
 
-            new_file_metadata.full_resource["content"]["file_core"]["file_integrity"] = file_integrity
+            new_file_metadata.full_resource["content"]["file_core"].update(file_integrity)
 
             return new_file_metadata
         else:
