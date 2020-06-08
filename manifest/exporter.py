@@ -9,12 +9,12 @@ from manifest.generator import ManifestGenerator
 
 
 class ManifestExporter:
-    def __init__(self, ingest_api: IngestApi):
+    def __init__(self, ingest_api: IngestApi, manifest_generator: ManifestGenerator):
         format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         logging.basicConfig(format=format)
         self.logger = logging.getLogger(__name__)
         self.ingest_api = ingest_api
-        self.manifest_generator = ManifestGenerator(ingest_api)
+        self.manifest_generator = manifest_generator
 
     def export(self, process_uuid: str, submission_uuid: str):
         assay_manifest = self.manifest_generator.generate_manifest(process_uuid, submission_uuid)

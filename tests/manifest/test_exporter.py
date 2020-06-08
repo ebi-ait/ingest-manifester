@@ -1,4 +1,3 @@
-import os
 from unittest import TestCase
 
 from ingest.api.ingestapi import IngestApi
@@ -20,11 +19,10 @@ class TestExporter(TestCase):
 
     def test_exporter_export(self):
         # given:
-        exporter = ManifestExporter(ingest_api=self.ingest)
         generator = MagicMock(spec=ManifestGenerator)
+        exporter = ManifestExporter(self.ingest, generator)
         generated_manifest = self.files.get_entity('bundleManifests', 'generated-manifest')
         generator.generate_manifest = MagicMock(return_value=generated_manifest)
-        exporter.manifest_generator = generator
 
         # and:
         submitted_manifest = self.files.get_entity('bundleManifests', 'mock-input-manifest')

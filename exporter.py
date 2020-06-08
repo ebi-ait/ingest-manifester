@@ -16,6 +16,7 @@ from kombu import Connection, Exchange, Queue
 
 from manifest.exporter import ManifestExporter
 from manifest.receiver import ManifestReceiver
+from manifest.generator import ManifestGenerator
 
 from exporter.terra.terra_exporter import TerraExporter
 
@@ -67,7 +68,8 @@ def setup_manifest_receiver() -> Thread:
             'retry_policy': RETRY_POLICY
         }
 
-        exporter = ManifestExporter(ingest_api=ingest_client)
+        manifest_generator = ManifestGenerator(ingest_client, GraphCrawler(MetadataService(ingest_client)))
+        exporter = ManifestExporter(ingest_api=ingest_client, manifest_generator=manifest_generator)
         manifest_receiver = ManifestReceiver(conn, bundle_queues, exporter=exporter, publish_config=conf)
         manifest_process = Thread(target=manifest_receiver.run)
         manifest_process.start()

@@ -109,7 +109,6 @@ class MetadataService:
     def get_supplementary_files(self, metadata: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('supplementaryFiles', metadata.full_resource, 'files'))
 
-
     @staticmethod
     def parse_metadata_resources(metadata_resources: List[Dict]) -> List[MetadataResource]:
         return [MetadataResource.from_dict(m) for m in metadata_resources]

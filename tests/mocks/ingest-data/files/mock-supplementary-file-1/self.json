@@ -23,7 +23,14 @@
   "validationErrors": [],
   "fileName": "mock-donor-selfie.jpeg",
   "cloudUrl": "s3://org-humancellatlas-upload-integration/c2f94466-adee-4aac-b8d0-1e864fa5f8e8/mock-donor-selfie.jpeg",
-  "checksums": null,
+  "checksums": {
+    "sha1": "",
+    "sha256": "",
+    "crc32c": "",
+    "s3_etag": ""
+  },
+  "fileContentType": "application/gzip",
+  "size": 478341,
   "validationId": "abc4dd22-db2d-4f14-abcf-a5da566a2cb5",
   "_links": {
     "self": {
