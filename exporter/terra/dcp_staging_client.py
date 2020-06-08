@@ -8,13 +8,21 @@ from io import StringIO, BufferedReader
 
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
+from google.api_core.exceptions import PreconditionFailed
+from http import HTTPStatus
 from mypy_boto3_s3 import S3Client
 from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
 import boto3
 import json
 
+from time import sleep
+
 
 Streamable = Union[BufferedReader, StringIO, IO[Any]]
+
+
+class UploadPollingException(Exception):
+    pass
 
 
 class GcsStorage:
@@ -24,11 +32,45 @@ class GcsStorage:
         self.storage_prefix = storage_prefix
 
     def write(self, object_key: str, data_stream: Streamable):
+        try:
+            dest_key = f'{self.storage_prefix}/{object_key}'
+            staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
+            blob: storage.Blob = staging_bucket.blob(dest_key)
+
+            if not blob.exists():
+                blob.upload_from_file(data_stream, if_generation_match=0)
+                blob.metadata = {"export_completed": True}
+                blob.patch()
+            else:
+                self.assert_file_uploaded(object_key)
+        except PreconditionFailed as e:
+            # With if_generation_match=0, this pre-condition failure indicates that another
+            # export instance has began uploading this file. We should not attempt to upload
+            # and instead poll for its completion
+            self.assert_file_uploaded(object_key)
+
+    def assert_file_uploaded(self, object_key):
         dest_key = f'{self.storage_prefix}/{object_key}'
         staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-        blob: storage.Blob = staging_bucket.blob(dest_key)
-        if not blob.exists():
-            blob.upload_from_file(data_stream)
+        blob = staging_bucket.get_blob(dest_key)
+
+        one_hour_in_seconds = 60 * 60
+        return self._assert_file_uploaded(blob, 2, one_hour_in_seconds)
+
+    @staticmethod
+    def _assert_file_uploaded(blob: storage.Blob, sleep_time: float, max_sleep_time: float):
+        if sleep_time > max_sleep_time:
+            raise UploadPollingException(f'Could not verify completed upload for blob {blob.name} within maximum '
+                                         f'wait time of {str(max_sleep_time)} seconds')
+        else:
+            sleep(sleep_time)
+            blob.reload()
+
+            export_completed = blob.metadata is not None and blob.metadata.get("export_completed")
+            if export_completed:
+                return
+            else:
+                return GcsStorage._assert_file_uploaded(blob, sleep_time * 2, max_sleep_time)
 
 
 class DcpStagingException(Exception):
