@@ -14,6 +14,7 @@ from mypy_boto3_s3 import S3Client
 from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
 import boto3
 import json
+import logging
 
 from time import sleep
 
@@ -30,6 +31,9 @@ class GcsStorage:
         self.gcs_client = gcs_client
         self.bucket_name = bucket_name
         self.storage_prefix = storage_prefix
+
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
     def write(self, object_key: str, data_stream: Streamable):
         try:
@@ -55,10 +59,10 @@ class GcsStorage:
         blob = staging_bucket.get_blob(dest_key)
 
         one_hour_in_seconds = 60 * 60
-        return self._assert_file_uploaded(blob, 2, one_hour_in_seconds)
+        one_hundred_milliseconds = 0.1
+        return self._assert_file_uploaded(blob, one_hundred_milliseconds, one_hour_in_seconds)
 
-    @staticmethod
-    def _assert_file_uploaded(blob: storage.Blob, sleep_time: float, max_sleep_time: float):
+    def _assert_file_uploaded(self, blob: storage.Blob, sleep_time: float, max_sleep_time: float):
         if sleep_time > max_sleep_time:
             raise UploadPollingException(f'Could not verify completed upload for blob {blob.name} within maximum '
                                          f'wait time of {str(max_sleep_time)} seconds')
@@ -70,7 +74,9 @@ class GcsStorage:
             if export_completed:
                 return
             else:
-                return GcsStorage._assert_file_uploaded(blob, sleep_time * 2, max_sleep_time)
+                new_sleep_time = sleep_time * 2
+                self.logger.info(f'Verifying upload of blob {blob.name}. Waiting for {str(new_sleep_time)} seconds...')
+                return self._assert_file_uploaded(blob, new_sleep_time, max_sleep_time)
 
 
 class DcpStagingException(Exception):

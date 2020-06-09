@@ -16,10 +16,9 @@ class TerraExporter:
         self.graph_crawler = graph_crawler
         self.dcp_staging_client = dcp_staging_client
 
-    def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version):
+    def export(self, process_uuid, experiment_uuid, experiment_version):
         process = self.get_process(process_uuid)
-        submission = self.get_submission(submission_uuid)
-        project = self.project_for_submission(submission)
+        project = self.project_for_process(process)
 
         experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
         experiment_data_files = [DataFile.from_file_metadata(m) for m in experiment_graph.nodes.get_nodes() if m.metadata_type == "file"]
@@ -38,5 +37,5 @@ class TerraExporter:
     def get_submission(self, submission_uuid):
         return self.ingest_client.get_entity_by_uuid('submissionEnvelopes', submission_uuid)
 
-    def project_for_submission(self, submission) -> MetadataResource:
-        return MetadataResource.from_dict(list(self.ingest_client.get_related_entities("projects", submission, "projects"))[0])
+    def project_for_process(self, process: MetadataResource) -> MetadataResource:
+        return MetadataResource.from_dict(list(self.ingest_client.get_related_entities("projects", process.full_resource, "projects"))[0])
