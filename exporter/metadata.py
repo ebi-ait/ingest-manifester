@@ -1,8 +1,16 @@
 import re
 from copy import deepcopy
+from typing import List, Dict, Optional
+from dataclasses import dataclass
+
+from ingest.api.ingestapi import IngestApi
 
 
 class MetadataParseException(Exception):
+    pass
+
+
+class MetadataException(Exception):
     pass
 
 
@@ -22,42 +30,40 @@ class MetadataProvenance:
 class MetadataResource:
 
     def __init__(self, metadata_type, metadata_json, uuid, dcp_version,
-                 provenance: MetadataProvenance):
+                 provenance: MetadataProvenance, full_resource: dict):
         self.metadata_json = metadata_json
         self.uuid = uuid
         self.dcp_version = dcp_version
-        self.metadata_type = metadata_type
+        self.metadata_type = metadata_type  # TODO: use an enum type instead of string
         self.provenance = provenance
+        self.full_resource = full_resource
+
+    def get_content(self, with_provenance=False) -> Dict:
+        content = deepcopy(self.full_resource["content"])
+        if with_provenance:
+            content["provenance"] = self.provenance.to_dict()
+            return content
+        else:
+            return content
 
     @staticmethod
-    def from_dict(data: dict, require_provenance=True):
+    def from_dict(data: dict):
         try:
             metadata_json = data['content']
             uuid = data['uuid']['uuid']
             dcp_version = data['dcpVersion']
             metadata_type = data['type'].lower()
-            provenance = MetadataResource._derive_provenance(data, require_provenance)
-            return MetadataResource(metadata_type, metadata_json, uuid, dcp_version, provenance)
+            provenance = MetadataResource.provenance_from_dict(data)
+            return MetadataResource(metadata_type, metadata_json, uuid, dcp_version, provenance, full_resource=data)
         except (KeyError, TypeError) as e:
             raise MetadataParseException(e)
-
-    @staticmethod
-    def _derive_provenance(data, require_provenance):
-        try:
-            provenance = MetadataResource.provenance_from_dict(data)
-        except MetadataParseException:
-            if require_provenance:
-                raise
-            else:
-                provenance = None
-        return provenance
 
     @staticmethod
     def provenance_from_dict(data: dict):
         try:
             uuid = data['uuid']['uuid']
             submission_date = data['submissionDate']
-            update_date = data['dcpVersion']
+            update_date = data['updateDate']
 
             # Populate the major and minor schema versions from the URL in the describedBy field
             schema_semver = re.findall(r'\d+\.\d+\.\d+', data["content"]["describedBy"])[0]
@@ -69,25 +75,95 @@ class MetadataResource:
         except (KeyError, TypeError) as e:
             raise MetadataParseException(e)
 
-    def get_staging_file_name(self):
-        return f'{self.metadata_type}_{self.uuid}.json'
-
-    def to_bundle_metadata(self) -> dict:
-        bundle_metadata = dict()
-        content = deepcopy(self.metadata_json)
-        bundle_metadata.update(content)
-
-        if self.provenance:
-            provenance = {'provenance': self.provenance.to_dict()}
-            bundle_metadata.update(provenance)
-        return bundle_metadata
+    def concrete_type(self) -> str:
+        return self.metadata_json["describedBy"].rsplit('/', 1)[-1]
 
 
 class MetadataService:
 
-    def __init__(self, ingest_client):
+    def __init__(self, ingest_client: IngestApi):
         self.ingest_client = ingest_client
 
     def fetch_resource(self, resource_link: str) -> MetadataResource:
         raw_metadata = self.ingest_client.get_entity_by_callback_link(resource_link)
         return MetadataResource.from_dict(raw_metadata)
+
+    def get_derived_by_processes(self, experiment_material: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('derivedByProcesses', experiment_material.full_resource, 'processes'))
+
+    def get_derived_biomaterials(self, process: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('derivedBiomaterials', process.full_resource, 'biomaterials'))
+
+    def get_derived_files(self, process: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('derivedFiles', process.full_resource, 'files'))
+
+    def get_input_biomaterials(self, process: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('inputBiomaterials', process.full_resource, 'biomaterials'))
+
+    def get_input_files(self, process: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('inputFiles', process.full_resource, 'files'))
+
+    def get_protocols(self, process: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('protocols', process.full_resource, 'protocols'))
+
+    def get_supplementary_files(self, metadata: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('supplementaryFiles', metadata.full_resource, 'files'))
+
+    @staticmethod
+    def parse_metadata_resources(metadata_resources: List[Dict]) -> List[MetadataResource]:
+        return [MetadataResource.from_dict(m) for m in metadata_resources]
+
+
+@dataclass
+class FileChecksums:
+    sha256: str
+    crc32c: str
+    sha1: str
+    s3_etag: str
+
+    @staticmethod
+    def from_dict(data: Dict) -> 'FileChecksums':
+        try:
+            sha256 = data["sha256"]
+            crc32c = data["crc32c"]
+            sha1 = data["sha1"]
+            s3_etag = data["s3_etag"]
+
+            return FileChecksums(sha256, crc32c, sha1, s3_etag)
+        except (KeyError, TypeError) as e:
+            raise MetadataParseException(e)
+
+
+@dataclass
+class DataFile:
+    uuid: str
+    dcp_version: str
+    file_name: str
+    cloud_url: str
+    content_type: str
+    size: int
+    checksums: FileChecksums
+
+    def source_bucket(self) -> str:
+        return self.cloud_url.split("//")[1].split("/")[0]
+
+    def source_key(self) -> str:
+        return self.cloud_url.split("//")[1].split("/", 1)[1]
+
+    @staticmethod
+    def from_file_metadata(file_metadata: MetadataResource) -> 'DataFile':
+        if file_metadata.full_resource is not None:
+            try:
+                return DataFile(file_metadata.full_resource["dataFileUuid"],
+                                file_metadata.dcp_version,
+                                file_metadata.full_resource["fileName"],
+                                file_metadata.full_resource["cloudUrl"],
+                                file_metadata.full_resource["fileContentType"],
+                                file_metadata.full_resource["size"],
+                                FileChecksums.from_dict(file_metadata.full_resource["checksums"]))
+            except (KeyError, TypeError) as e:
+                raise MetadataParseException(e)
+        else:
+            raise MetadataParseException(f'Error: parsing DataFile from file MetadataResources requires non-empty'
+                                         f'"full_resource" field. Metadata:\n\n {file_metadata.metadata_json}')
+

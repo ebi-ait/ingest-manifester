@@ -11,6 +11,8 @@
   },
   "submissionDate": "2018-03-28T13:51:12.920Z",
   "updateDate": "2018-04-09T14:45:33.902Z",
+  "dcpVersion": "2018-04-09T14:45:33.902Z",
+  "type": "File",
   "user": "anonymousUser",
   "lastModifiedUser": "anonymousUser",
   "uuid": {
@@ -23,7 +25,14 @@
   "validationErrors": [],
   "fileName": "22011_1#3_1.fastq.gz",
   "cloudUrl": "s3://org-humancellatlas-upload-integration/c2f94466-adee-4aac-b8d0-1e864fa5f8e8/22011_1#3_1.fastq.gz",
-  "checksums": null,
+  "checksums": {
+    "sha1": "",
+    "sha256": "",
+    "crc32c": "",
+    "s3_etag": ""
+  },
+  "fileContentType": "application/gzip",
+  "size": 478341,
   "validationId": "7baadd22-db2d-4f14-abcf-a5da566a2cb5",
   "_links": {
     "self": {

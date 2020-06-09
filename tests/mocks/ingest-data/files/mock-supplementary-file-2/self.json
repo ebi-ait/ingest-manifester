@@ -1,0 +1,57 @@
+{
+  "content": {
+    "file_core": {
+      "file_name": "mock-donor-character-sheet.png",
+      "file_format": "png"
+    },
+    "schema_type": "file",
+    "describedBy": "https://schema.humancellatlas.org/type/file/2.2.0/supplementary_file"
+  },
+  "submissionDate": "2018-03-28T13:51:12.920Z",
+  "updateDate": "2018-04-09T14:45:33.902Z",
+  "dcpVersion": "2018-04-09T14:45:33.902Z",
+  "type": "File",
+  "user": "anonymousUser",
+  "lastModifiedUser": "anonymousUser",
+  "uuid": {
+    "uuid": "7b90e769-c1cc-434e-a5bb-c166b4fa89df"
+  },
+  "dataFileUuid": "uuid4",
+  "events": [],
+  "accession": null,
+  "validationState": "Valid",
+  "validationErrors": [],
+  "fileName": "mock-donor-character-sheet",
+  "cloudUrl": "s3://org-humancellatlas-upload-integration/c2f94466-adee-4aac-b8d0-1e864fa5f8e8/mock-donor-character-sheet",
+   "checksums": {
+    "sha1": "",
+    "sha256": "",
+    "crc32c": "",
+    "s3_etag": ""
+  },
+  "fileContentType": "application/gzip",
+  "size": 478341,
+  "validationId": "ff34dd22-db2d-4f14-abcf-a5da566a2cb5",
+  "_links": {
+    "self": {
+      "href": "http://mock-ingest-api/files/mock-supplementary-files/mock-supplementary-file-2"
+    },
+    "file": {
+      "href": "http://mock-ingest-api/files/mock-supplementary-files/mock-supplementary-file-2",
+      "title": "A single file"
+    },
+    "processing": {
+      "href": "http://mock-ingest-api/files/mock-supplementary-files/mock-supplementary-file-2/processingEvent"
+    },
+    "inputToProcesses": {
+      "href": "http://mock-ingest-api/files/mock-supplementary-files/mock-supplementary-file-2/inputToProcesses"
+    },
+    "derivedByProcesses": {
+      "href": "http://mock-ingest-api/files/mock-supplementary-files/mock-supplementary-file-2/derivedByProcesses"
+    },
+    "submissionEnvelopes": {
+      "href": "http://mock-ingest-api/files/mock-supplementary-files/mock-supplementary-file-2/submissionEnvelopes",
+      "title": "Access or create new submission envelopes"
+    }
+  }
+}

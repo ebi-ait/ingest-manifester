@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from mock import Mock
 
-from exporter.metadata import MetadataResource, MetadataService, MetadataParseException, MetadataProvenance
+from exporter.metadata import MetadataResource, MetadataService, MetadataParseException, DataFile, FileChecksums
 
 
 class MetadataResourceTest(TestCase):
@@ -27,7 +27,7 @@ class MetadataResourceTest(TestCase):
         self.assertIsNotNone(metadata_provenance)
         self.assertEqual(uuid_value, metadata_provenance.document_id)
         self.assertEqual('a submission date', metadata_provenance.submission_date)
-        self.assertEqual('2019-12-02T13:40:50.520Z', metadata_provenance.update_date)
+        self.assertEqual('an update date', metadata_provenance.update_date)
 
     def test_provenance_from_dict_fail_fast(self):
         # given:
@@ -58,27 +58,6 @@ class MetadataResourceTest(TestCase):
         # and:
         self.assertEqual(uuid_value, metadata.uuid)
 
-    def test_from_dict_provenance_optional(self):
-        # given:
-        uuid = '566be204-a684-4896-bda7-8dbb3e4fc65c'
-        data_no_provenance = self._create_test_data(uuid)
-        del data_no_provenance['submissionDate']
-
-        # and:
-        data = self._create_test_data(uuid)
-
-        # when:
-        metadata_no_provenance = MetadataResource.from_dict(data_no_provenance, require_provenance=False)
-        metadata = MetadataResource.from_dict(data, require_provenance=False)
-
-        # then:
-        self.assertIsNotNone(metadata_no_provenance)
-        self.assertEqual(uuid, metadata_no_provenance.uuid)
-        self.assertIsNone(metadata_no_provenance.provenance)
-
-        # and:
-        self.assertIsNotNone(metadata.provenance)
-
     def test_from_dict_fail_fast_with_missing_info(self):
         # given:
         data = {}
@@ -86,33 +65,6 @@ class MetadataResourceTest(TestCase):
         with self.assertRaises(MetadataParseException):
             # when
             MetadataResource.from_dict(data)
-
-    def test_to_bundle_metadata(self):
-        # given:
-        uuid_value = '3f3212da-d5d0-4e55-b31d-83243fa02e0d'
-        data = self._create_test_data(uuid_value)
-        metadata = MetadataResource.from_dict(data)
-
-        # and:
-        data_no_provenance = self._create_test_data(uuid_value)
-        del data_no_provenance['submissionDate']
-        metadata_no_provenance = MetadataResource.from_dict(data_no_provenance, require_provenance=False)
-        self.assertIsNone(metadata_no_provenance.provenance)
-
-        # when
-        bundle_metadata = metadata.to_bundle_metadata()
-        bundle_metadata_no_provenance = metadata_no_provenance.to_bundle_metadata()
-
-        # then:
-        self.assertTrue('provenance' in bundle_metadata)
-        self.assertTrue(bundle_metadata['provenance'] == metadata.provenance.to_dict())
-        self.assertTrue(set(data['content'].keys()) <= set(
-            bundle_metadata.keys()))  # <= operator checks if a dict is subset of another dict
-
-        # and:
-        self.assertIsNotNone(bundle_metadata_no_provenance)
-        self.assertEqual(metadata_no_provenance.metadata_json['describedBy'],
-                         bundle_metadata_no_provenance['describedBy'])
 
     @staticmethod
     def _create_test_data(uuid_value):
@@ -123,27 +75,6 @@ class MetadataResourceTest(TestCase):
                 'dcpVersion': '6.9.1',
                 'submissionDate': 'a date',
                 'updateDate': 'another date'}
-
-    def test_get_staging_file_name(self):
-        # given:
-        metadata_resource_1 = MetadataResource(metadata_type='specimen',
-                                               uuid='9b159cae-a1fe-4cce-94bc-146e4aa20553',
-                                               metadata_json={'description': 'test'},
-                                               dcp_version='5.1.0',
-                                               provenance=MetadataProvenance('9b159cae-a1fe-4cce-94bc-146e4aa20553',
-                                                                             'some date', 'some other date', 1, 1))
-        metadata_resource_2 = MetadataResource(metadata_type='donor_organism',
-                                               uuid='38e0ee7c-90dc-438a-a0ed-071f9231f590',
-                                               metadata_json={'text': 'sample'},
-                                               dcp_version='1.0.7',
-                                               provenance=MetadataProvenance('38e0ee7c-90dc-438a-a0ed-071f9231f590',
-                                                                             'some date', 'some other date', '2', '2'))
-
-        # expect:
-        self.assertEqual('specimen_9b159cae-a1fe-4cce-94bc-146e4aa20553.json',
-                         metadata_resource_1.get_staging_file_name())
-        self.assertEqual('donor_organism_38e0ee7c-90dc-438a-a0ed-071f9231f590.json',
-                         metadata_resource_2.get_staging_file_name())
 
 
 class MetadataServiceTest(TestCase):
@@ -175,4 +106,25 @@ class MetadataServiceTest(TestCase):
         self.assertEqual(raw_metadata['content'], metadata_resource.metadata_json)
         self.assertEqual(raw_metadata['dcpVersion'], metadata_resource.dcp_version)
         self.assertEqual(raw_metadata['submissionDate'], metadata_resource.provenance.submission_date)
-        self.assertEqual(raw_metadata['dcpVersion'], metadata_resource.provenance.update_date)
+        self.assertEqual(raw_metadata['updateDate'], metadata_resource.provenance.update_date)
+
+
+class DataFileTest(TestCase):
+
+    def mock_checksums(self) -> FileChecksums:
+        return FileChecksums("sha256", "crc32c", "sha1", "s3_etag")
+
+    def test_parse_bucket_from_cloud_url(self):
+        test_cloud_url = "s3://test-bucket/somefile.txt"
+        test_data_file = DataFile("mock_uuid", "mock_version", "mock_file_name", test_cloud_url, "application/txt", "5", self.mock_checksums())
+        self.assertEqual(test_data_file.source_bucket(), "test-bucket")
+
+    def test_parse_key_from_cloud_url(self):
+        test_cloud_url = "s3://test-bucket/somefile.txt"
+        test_data_file = DataFile("mock_uuid", "mock_version", "mock_file_name", test_cloud_url, "application/txt", "5", self.mock_checksums())
+        self.assertEqual(test_data_file.source_key(), "somefile.txt")
+
+    def test_parse_nested_key_from_cloud_url(self):
+        test_cloud_url = "s3://test-bucket/somedir/somesubdir/somefile.txt"
+        test_data_file = DataFile("mock_uuid", "mock_version", "mock_file_name", test_cloud_url, "application/txt", "5", self.mock_checksums())
+        self.assertEqual(test_data_file.source_key(), "somedir/somesubdir/somefile.txt")
