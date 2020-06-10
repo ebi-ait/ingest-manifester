@@ -1,4 +1,4 @@
-from kombu.mixins import ConsumerMixin
+from kombu.mixins import ConsumerProducerMixin
 from kombu import Connection, Consumer, Message, Queue, Exchange
 
 from exporter.terra.terra_exporter import TerraExporter
@@ -37,12 +37,31 @@ class ExperimentMessage:
         except (KeyError, TypeError) as e:
             raise ExperimentMessageParseExpection(e)
 
+
 @dataclass
 class SimpleUpdateMessage:
+    metadata_urls: List[str]
+    submission_uuid: str
+    index: int
+    total: int
+
+    @staticmethod
+    def from_dict(data: Dict) -> 'SimpleUpdateMessage':
+        try:
+            return SimpleUpdateMessage(data["callbackLinks"],
+                                       data["envelopeUuid"],
+                                       data["index"],
+                                       data["total"])
+        except (KeyError, TypeError) as e:
+            raise ExperimentMessageParseExpection(e)
+
+
+@dataclass
+class ExportCompleteMessage:
     pass
 
 
-class _TerraListener(ConsumerMixin):
+class _TerraListener(ConsumerProducerMixin):
 
     def __init__(self,
                  connection: Connection,
@@ -86,10 +105,17 @@ class _TerraListener(ConsumerMixin):
             self.logger.exception(e)
 
     def update_message_handler(self, body: str, msg: Message):
-        pass
+        return self.executor.submit(lambda: self._update_message_handler(body, msg))
 
     def _update_message_handler(self, body: str, msg: Message):
-        pass
+        update_message = SimpleUpdateMessage.from_dict(json.loads(body))
+        self.logger.info(f'Received metadata update message for submission {update_message.submission_uuid}) '
+                         f'(--index {update_message.index} --total {update_message.total})')
+        self.terra_exporter.export_update(update_message.metadata_urls)
+        self.logger.info(f'Exported updates for metadata URLs: [ {",".join(update_message.metadata_urls)} ] '
+                         f'(--index {update_message.index} --total {update_message.total})')
+
+        msg.ack()
 
     @staticmethod
     def queue_from_config(queue_config: QueueConfig) -> Queue:
