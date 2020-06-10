@@ -103,7 +103,7 @@ class DcpStagingClient:
             self.write_to_staging_bucket(dest_object_key, data_stream)
         else:
             converted_file_metadata = DcpStagingClient.convert_file_metadata(metadata)
-            data_stream = DcpStagingClient.dict_to_json_stream(converted_file_metadata.get_content())
+            data_stream = DcpStagingClient.dict_to_json_stream(converted_file_metadata.get_content(with_provenance=True))
             self.write_to_staging_bucket(dest_object_key, data_stream)
 
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
