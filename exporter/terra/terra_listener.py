@@ -98,12 +98,13 @@ class _TerraListener(ConsumerProducerMixin):
             self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
             self.terra_exporter.export(exp.process_uuid, exp.experiment_uuid, exp.experiment_version)
             self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
+            msg.ack()
             self.producer.publish(json.loads(body),
                 exchange=self.publish_queue_config.exchange,
                 routing_key=self.publish_queue_config.routing_key,
                 retry=self.publish_queue_config.retry,
                 retry_policy=self.publish_queue_config.retry_policy)
-            msg.ack()
+
         except Exception as e:
             self.logger.error(f'Failed to export experiment message with body: {body}')
             self.logger.exception(e)

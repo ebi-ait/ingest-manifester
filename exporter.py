@@ -32,7 +32,6 @@ ASSAY_QUEUE_MANIFEST = 'ingest.manifests.assays.new'
 EXPERIMENT_QUEUE_TERRA = 'ingest.terra.experiments.new'
 
 UPDATE_QUEUE_TERRA = 'ingest.terra.updates.new'
-ANALYSIS_QUEUE_MANIFESTS = 'ingest.manifests.analysis.new'
 
 ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
 EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
@@ -58,9 +57,7 @@ def setup_manifest_receiver() -> Thread:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
         bundle_queues = [
             Queue(ASSAY_QUEUE_MANIFEST, bundle_exchange,
-                  routing_key=ASSAY_ROUTING_KEY),
-            Queue(ANALYSIS_QUEUE_MANIFESTS, bundle_exchange,
-                  routing_key=ANALYSIS_ROUTING_KEY)
+                  routing_key=ASSAY_ROUTING_KEY)
         ]
 
         conf = {
