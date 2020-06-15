@@ -34,7 +34,8 @@ EXPERIMENT_QUEUE_TERRA = 'ingest.terra.experiments.new'
 UPDATE_QUEUE_TERRA = 'ingest.terra.updates.new'
 ANALYSIS_QUEUE_MANIFESTS = 'ingest.manifests.analysis.new'
 
-ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
+ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
+EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
 UPDATE_ROUTING_KEY = 'ingest-bundle.update.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
