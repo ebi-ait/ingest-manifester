@@ -36,10 +36,11 @@ ANALYSIS_QUEUE_MANIFESTS = 'ingest.manifests.analysis.new'
 
 ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
 EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
-UPDATE_ROUTING_KEY = 'ingest-bundle.update.submitted'
+UPDATE_ROUTING_KEY = 'ingest.update.experiment.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
 ASSAY_COMPLETED_ROUTING_KEY = 'ingest.assay.manifest.completed'
+EXPERIMENT_COMPLETED_ROUTING_KEY = 'ingest.assay.experiment.exported'
 
 
 RETRY_POLICY = {
@@ -103,9 +104,9 @@ def setup_terra_exporter() -> Thread:
     rabbit_host = os.environ.get('RABBIT_HOST', 'localhost')
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
     amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
-    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
+    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, EXPERIMENT_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
     update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
-    publish_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
+    publish_queue_config = QueueConfig(None, EXPERIMENT_COMPLETED_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
 
     terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config, publish_queue_config)
 
