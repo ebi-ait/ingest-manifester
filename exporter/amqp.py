@@ -7,6 +7,8 @@ class QueueConfig:
     routing_key: str
     exchange: str
     exchange_type: str
+    retry: bool
+    retry_policy: dict
 
 
 @dataclass

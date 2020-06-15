@@ -103,10 +103,11 @@ def setup_terra_exporter() -> Thread:
     rabbit_host = os.environ.get('RABBIT_HOST', 'localhost')
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
     amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
-    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
-    update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
+    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
+    update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
+    publish_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
 
-    terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config)
+    terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config, publish_queue_config)
 
     terra_exporter_listener_process = Thread(target=lambda: terra_listener.run())
     terra_exporter_listener_process.start()
