@@ -39,7 +39,7 @@ EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
 UPDATE_ROUTING_KEY = 'ingest-bundle.update.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
-ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
+ASSAY_COMPLETED_ROUTING_KEY = 'ingest.assay.manifest.completed'
 
 
 RETRY_POLICY = {
