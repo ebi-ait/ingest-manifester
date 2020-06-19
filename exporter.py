@@ -32,13 +32,14 @@ ASSAY_QUEUE_MANIFEST = 'ingest.manifests.assays.new'
 EXPERIMENT_QUEUE_TERRA = 'ingest.terra.experiments.new'
 
 UPDATE_QUEUE_TERRA = 'ingest.terra.updates.new'
-ANALYSIS_QUEUE_MANIFESTS = 'ingest.manifests.analysis.new'
 
-ASSAY_ROUTING_KEY = 'ingest.bundle.assay.submitted'
-UPDATE_ROUTING_KEY = 'ingest-bundle.update.submitted'
+ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
+EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
+UPDATE_ROUTING_KEY = 'ingest.update.experiment.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
-ASSAY_COMPLETED_ROUTING_KEY = 'ingest.bundle.assay.completed'
+ASSAY_COMPLETED_ROUTING_KEY = 'ingest.assay.manifest.completed'
+EXPERIMENT_COMPLETED_ROUTING_KEY = 'ingest.assay.experiment.exported'
 
 
 RETRY_POLICY = {
@@ -56,9 +57,7 @@ def setup_manifest_receiver() -> Thread:
         bundle_exchange = Exchange(EXCHANGE, type=EXCHANGE_TYPE)
         bundle_queues = [
             Queue(ASSAY_QUEUE_MANIFEST, bundle_exchange,
-                  routing_key=ASSAY_ROUTING_KEY),
-            Queue(ANALYSIS_QUEUE_MANIFESTS, bundle_exchange,
-                  routing_key=ANALYSIS_ROUTING_KEY)
+                  routing_key=ASSAY_ROUTING_KEY)
         ]
 
         conf = {
@@ -102,10 +101,11 @@ def setup_terra_exporter() -> Thread:
     rabbit_host = os.environ.get('RABBIT_HOST', 'localhost')
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
     amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
-    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, ASSAY_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
-    update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE)
+    experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, EXPERIMENT_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
+    update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
+    publish_queue_config = QueueConfig(None, EXPERIMENT_COMPLETED_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
 
-    terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config)
+    terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config, publish_queue_config)
 
     terra_exporter_listener_process = Thread(target=lambda: terra_listener.run())
     terra_exporter_listener_process.start()

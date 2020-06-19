@@ -18,6 +18,7 @@ class ExperimentMessageParseExpection(Exception):
 
 @dataclass
 class ExperimentMessage:
+    process_id: str
     process_uuid: str
     submission_uuid: str
     experiment_uuid: str
@@ -28,7 +29,9 @@ class ExperimentMessage:
     @staticmethod
     def from_dict(data: Dict) -> 'ExperimentMessage':
         try:
-            return ExperimentMessage(data["documentUuid"],
+            return ExperimentMessage(
+                                     data["documentId"],
+                                     data["documentUuid"],
                                      data["envelopeUuid"],
                                      data["bundleUuid"],
                                      data["versionTimestamp"],
@@ -56,11 +59,6 @@ class SimpleUpdateMessage:
             raise ExperimentMessageParseExpection(e)
 
 
-@dataclass
-class ExportCompleteMessage:
-    pass
-
-
 class _TerraListener(ConsumerProducerMixin):
 
     def __init__(self,
@@ -68,11 +66,13 @@ class _TerraListener(ConsumerProducerMixin):
                  terra_exporter: TerraExporter,
                  experiment_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
+                 publish_queue_config: QueueConfig,
                  executor: ThreadPoolExecutor):
         self.connection = connection
         self.terra_exporter = terra_exporter
         self.experiment_queue_config = experiment_queue_config
         self.update_queue_config = update_queue_config
+        self.publish_queue_config = publish_queue_config
         self.executor = executor
 
         self.logger = logging.getLogger(__name__)
@@ -98,8 +98,13 @@ class _TerraListener(ConsumerProducerMixin):
             self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
             self.terra_exporter.export(exp.process_uuid, exp.experiment_uuid, exp.experiment_version)
             self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
-
+            self.producer.publish(json.loads(body),
+                exchange=self.publish_queue_config.exchange,
+                routing_key=self.publish_queue_config.routing_key,
+                retry=self.publish_queue_config.retry,
+                retry_policy=self.publish_queue_config.retry_policy)
             msg.ack()
+
         except Exception as e:
             self.logger.error(f'Failed to export experiment message with body: {body}')
             self.logger.exception(e)
@@ -129,13 +134,15 @@ class TerraListener:
                  amqp_conn_config: AmqpConnConfig,
                  terra_exporter: TerraExporter,
                  experiment_queue_config: QueueConfig,
-                 update_queue_config: QueueConfig):
+                 update_queue_config: QueueConfig,
+                 publish_queue_config: QueueConfig):
         self.amqp_conn_config = amqp_conn_config
         self.terra_exporter = terra_exporter
         self.experiment_queue_config = experiment_queue_config
         self.update_queue_config = update_queue_config
+        self.publish_queue_config = publish_queue_config
 
     def run(self):
         with Connection(self.amqp_conn_config.broker_url()) as conn:
-            _terra_listener = _TerraListener(conn, self.terra_exporter, self.experiment_queue_config, self.update_queue_config, ThreadPoolExecutor())
+            _terra_listener = _TerraListener(conn, self.terra_exporter, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
             _terra_listener.run()
