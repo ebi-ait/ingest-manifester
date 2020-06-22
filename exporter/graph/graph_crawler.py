@@ -1,6 +1,6 @@
 from exporter.metadata import MetadataResource, MetadataService
 from exporter.graph.experiment_graph import ExperimentGraph, ProcessLink, Input, Output, ProtocolLink, SupplementaryFileLink, SupplementedEntity, SupplementaryFile
-from typing import List, Iterable
+from typing import List, Iterable, Optional
 from functools import reduce
 from operator import iconcat
 from dataclasses import dataclass
@@ -40,19 +40,20 @@ class GraphCrawler:
         Finds supplementary files for this project, if any, and generates corresponding links and inserts
         the project node + supplementary file links into a small graph
         :param project:
-        :return: a possibly empty ExperimentGraph containing project supplementary links
+        :return: an ExperimentGraph containing the project and, if any, supplementary file links
         """
         suppl_files_info = self.supplementary_files_info(project)
-        if len(suppl_files_info.files) > 0:
+        if suppl_files_info:
             graph = ExperimentGraph()
             graph.nodes.add_nodes(suppl_files_info.files + [project])
-
             suppl_files_link = GraphCrawler.supplementary_file_link_for(suppl_files_info)
             graph.links.add_link(suppl_files_link)
 
             return graph
         else:
-            return ExperimentGraph()
+            graph = ExperimentGraph()
+            graph.nodes.add_node(project)
+            return graph
 
     def _crawl(self, process: MetadataResource) -> ExperimentGraph:
         partial_graph = ExperimentGraph()
@@ -102,6 +103,9 @@ class GraphCrawler:
             protocols = _protocols.result()
             return ProcessInfo(process, inputs, outputs, protocols)
 
-    def supplementary_files_info(self, metadata: MetadataResource) -> SupplementaryFilesInfo:
+    def supplementary_files_info(self, metadata: MetadataResource) -> Optional[SupplementaryFilesInfo]:
         files = self.metadata_service.get_supplementary_files(metadata)
-        return SupplementaryFilesInfo(metadata, files)
+        if len(files) > 0:
+            return SupplementaryFilesInfo(metadata, files)
+        else:
+            return None
