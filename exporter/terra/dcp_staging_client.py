@@ -151,6 +151,7 @@ class DcpStagingClient:
 
         file_descriptor = FileDescriptor.from_file_metadata(file_metadata)
         file_descriptor_dict = file_descriptor.to_dict()
+        #file_descriptor_dict["describedBy"] = latest_file_descriptor_schema.schema_url
         #file_descriptor_dict["schema_version"] = latest_file_descriptor_schema.schema_version
 
         return file_descriptor_dict
