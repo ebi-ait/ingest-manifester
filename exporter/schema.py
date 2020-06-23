@@ -37,11 +37,14 @@ class SchemaService:
         return SchemaResource.from_dict(latest_schema)
 
     def latest_file_descriptor_schema(self) -> SchemaResource:
-        latest_schema = self.ingest_client.get_schemas(
-            latest_only=True,
-            high_level_entity="system",
-            domain_entity="",
-            concrete_entity="file_descriptor"
-        )[0]
+        try:
+            latest_schema = self.ingest_client.get_schemas(
+                latest_only=True,
+                high_level_entity="system",
+                domain_entity="",
+                concrete_entity="file_descriptor"
+            )[0]
 
-        return SchemaResource.from_dict(latest_schema)
+            return SchemaResource.from_dict(latest_schema)
+        except IndexError as e:
+            raise SchemaParseException(f'Failed to find latest file_descriptor schema')

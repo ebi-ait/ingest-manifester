@@ -147,11 +147,11 @@ class DcpStagingClient:
         self.write_to_staging_bucket(dest_object_key, data_stream)
 
     def generate_file_desciptor_json(self, file_metadata) -> Dict:
-        latest_file_descriptor_schema = self.schema_service.latest_file_descriptor_schema()
+        #latest_file_descriptor_schema = self.schema_service.latest_file_descriptor_schema()
 
         file_descriptor = FileDescriptor.from_file_metadata(file_metadata)
         file_descriptor_dict = file_descriptor.to_dict()
-        file_descriptor_dict["schema_version"] = latest_file_descriptor_schema.schema_version
+        #file_descriptor_dict["schema_version"] = latest_file_descriptor_schema.schema_version
 
         return file_descriptor_dict
 
