@@ -35,6 +35,15 @@ class GcsStorage:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
+    def file_exists(self, object_key: str) -> bool:
+        dest_key = f'{self.storage_prefix}/{object_key}'
+        staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
+        blob: storage.Blob = staging_bucket.get_blob(dest_key)
+
+        return blob.exists() and \
+               blob.metadata is not None and \
+               blob.metadata.get("export_completed", False)
+
     def write(self, object_key: str, data_stream: Streamable):
         try:
             dest_key = f'{self.storage_prefix}/{object_key}'
@@ -118,13 +127,16 @@ class DcpStagingClient:
 
     def write_data_file(self, data_file: DataFile):
         dest_object_key = f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
-        source_bucket = data_file.source_bucket()
-        source_key = data_file.source_key()
+        if self.gcs_storage.file_exists(dest_object_key):
+            return
+        else:
+            source_bucket = data_file.source_bucket()
+            source_key = data_file.source_key()
 
-        s3_object = self.s3_client.get_object(Bucket=source_bucket, Key=source_key)
-        s3_object_stream = DcpStagingClient.s3_download_stream(s3_object)
+            s3_object = self.s3_client.get_object(Bucket=source_bucket, Key=source_key)
+            s3_object_stream = DcpStagingClient.s3_download_stream(s3_object)
 
-        self.write_to_staging_bucket(dest_object_key, s3_object_stream)
+            self.write_to_staging_bucket(dest_object_key, s3_object_stream)
 
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
         self.gcs_storage.write(object_key, data_stream)
