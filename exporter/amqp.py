@@ -7,6 +7,12 @@ class QueueConfig:
     routing_key: str
     exchange: str
     exchange_type: str
+
+
+@dataclass
+class PublishConfig:
+    exchange: str
+    routing_key: str
     retry: bool
     retry_policy: dict
 

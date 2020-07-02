@@ -2,11 +2,13 @@ from kombu.mixins import ConsumerProducerMixin
 from kombu import Connection, Consumer, Message, Queue, Exchange
 
 from exporter.terra.terra_exporter import TerraExporter
-from exporter.amqp import QueueConfig, AmqpConnConfig
+from exporter.amqp import QueueConfig, AmqpConnConfig, PublishConfig
 
 from typing import Type, List, Dict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+
+from ingest.api.ingestapi import IngestApi
 
 import logging
 import json
@@ -29,8 +31,7 @@ class ExperimentMessage:
     @staticmethod
     def from_dict(data: Dict) -> 'ExperimentMessage':
         try:
-            return ExperimentMessage(
-                                     data["documentId"],
+            return ExperimentMessage(data["documentId"],
                                      data["documentUuid"],
                                      data["envelopeUuid"],
                                      data["bundleUuid"],
@@ -63,12 +64,14 @@ class _TerraListener(ConsumerProducerMixin):
 
     def __init__(self,
                  connection: Connection,
+                 ingest_client: IngestApi,
                  terra_exporter: TerraExporter,
                  experiment_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
-                 publish_queue_config: QueueConfig,
+                 publish_queue_config: PublishConfig,
                  executor: ThreadPoolExecutor):
         self.connection = connection
+        self.ingest_client = ingest_client
         self.terra_exporter = terra_exporter
         self.experiment_queue_config = experiment_queue_config
         self.update_queue_config = update_queue_config
@@ -99,15 +102,16 @@ class _TerraListener(ConsumerProducerMixin):
             self.terra_exporter.export(exp.process_uuid, exp.experiment_uuid, exp.experiment_version)
             self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
             self.producer.publish(json.loads(body),
-                exchange=self.publish_queue_config.exchange,
-                routing_key=self.publish_queue_config.routing_key,
-                retry=self.publish_queue_config.retry,
-                retry_policy=self.publish_queue_config.retry_policy)
+                                  exchange=self.publish_queue_config.exchange,
+                                  routing_key=self.publish_queue_config.routing_key,
+                                  retry=self.publish_queue_config.retry,
+                                  retry_policy=self.publish_queue_config.retry_policy)
             msg.ack()
 
         except Exception as e:
             self.logger.error(f'Failed to export experiment message with body: {body}')
             self.logger.exception(e)
+            self.create_submission_error(body)
 
     def update_message_handler(self, body: str, msg: Message):
         return self.executor.submit(lambda: self._update_message_handler(body, msg))
@@ -127,16 +131,28 @@ class _TerraListener(ConsumerProducerMixin):
         exchange = Exchange(queue_config.exchange, queue_config.exchange_type)
         return Queue(queue_config.name, exchange, queue_config.routing_key)
 
+    def create_submission_error(self, msg_body: str):
+        try:
+            exp = ExperimentMessage.from_dict(json.loads(msg_body))
+            submission = self.ingest_client.get_submission_by_uuid(exp.submission_uuid)
+            submission_url = submission["_links"]["self"]["href"]
+            error_message = f'Failed to export assay process {exp.process_uuid}\nPlease contact the ingest help desk'
+            self.ingest_client.create_submission_error(submission_url, error_message)
+        except Exception as e:
+            self.logger.exception(e)
+
 
 class TerraListener:
 
     def __init__(self,
                  amqp_conn_config: AmqpConnConfig,
+                 ingest_client: IngestApi,
                  terra_exporter: TerraExporter,
                  experiment_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
-                 publish_queue_config: QueueConfig):
+                 publish_queue_config: PublishConfig):
         self.amqp_conn_config = amqp_conn_config
+        self.ingest_client = ingest_client
         self.terra_exporter = terra_exporter
         self.experiment_queue_config = experiment_queue_config
         self.update_queue_config = update_queue_config
@@ -144,5 +160,6 @@ class TerraListener:
 
     def run(self):
         with Connection(self.amqp_conn_config.broker_url()) as conn:
-            _terra_listener = _TerraListener(conn, self.terra_exporter, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
+            _terra_listener = _TerraListener(conn, self.ingest_client, self.terra_exporter, self.experiment_queue_config,
+                                             self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
             _terra_listener.run()
