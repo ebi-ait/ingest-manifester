@@ -1,5 +1,7 @@
 from ingest.api.ingestapi import IngestApi
 
+from functools import lru_cache
+
 
 class SchemaParseException(Exception):
     pass
@@ -26,6 +28,7 @@ class SchemaService:
     def __init__(self, ingest_client: IngestApi):
         self.ingest_client = ingest_client
 
+    @lru_cache()
     def latest_links_schema(self) -> SchemaResource:
         latest_schema = self.ingest_client.get_schemas(
             latest_only=True,
@@ -36,6 +39,7 @@ class SchemaService:
 
         return SchemaResource.from_dict(latest_schema)
 
+    @lru_cache()
     def latest_file_descriptor_schema(self) -> SchemaResource:
         try:
             latest_schema = self.ingest_client.get_schemas(
