@@ -147,7 +147,7 @@ class DcpStagingClient:
         self.write_to_staging_bucket(dest_object_key, data_stream)
 
     def generate_file_desciptor_json(self, file_metadata) -> Dict:
-        latest_file_descriptor_schema = self.schema_service.latest_file_descriptor_schema()
+        latest_file_descriptor_schema = self.schema_service.cached_latest_file_descriptor_schema()
 
         file_descriptor = FileDescriptor.from_file_metadata(file_metadata)
         file_descriptor_dict = file_descriptor.to_dict()
@@ -174,7 +174,7 @@ class DcpStagingClient:
         self.gcs_storage.write(object_key, data_stream)
 
     def generate_links_json(self, link_set: LinkSet) -> Dict:
-        latest_links_schema = self.schema_service.latest_links_schema()
+        latest_links_schema = self.schema_service.cached_latest_links_schema()
 
         links_json = link_set.to_dict()
         links_json["describedBy"] = latest_links_schema.schema_url

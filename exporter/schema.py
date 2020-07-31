@@ -1,6 +1,7 @@
 from ingest.api.ingestapi import IngestApi
+from typing import Optional, Callable
 
-from functools import lru_cache
+from cachetools.func import ttl_cache
 
 
 class SchemaParseException(Exception):
@@ -25,10 +26,13 @@ class SchemaResource:
 
 class SchemaService:
 
-    def __init__(self, ingest_client: IngestApi):
+    def __init__(self, ingest_client: IngestApi, ttl: Optional[int] = None):
         self.ingest_client = ingest_client
+        self.ttl = ttl if ttl is not None else 600
 
-    @lru_cache()
+        self.cached_latest_links_schema = ttl_cache(ttl=self.ttl)(self.latest_links_schema)
+        self.cached_latest_file_descriptor_schema = ttl_cache(ttl=self.ttl)(self.latest_file_descriptor_schema)
+
     def latest_links_schema(self) -> SchemaResource:
         latest_schema = self.ingest_client.get_schemas(
             latest_only=True,
@@ -39,7 +43,6 @@ class SchemaService:
 
         return SchemaResource.from_dict(latest_schema)
 
-    @lru_cache()
     def latest_file_descriptor_schema(self) -> SchemaResource:
         try:
             latest_schema = self.ingest_client.get_schemas(
