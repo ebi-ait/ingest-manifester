@@ -1,4 +1,4 @@
-from exporter.metadata import MetadataResource, DataFile
+from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
 from typing import Iterable, IO, Dict, Any, Union
@@ -17,6 +17,7 @@ import json
 import logging
 
 from time import sleep
+from dataclasses import dataclass
 
 
 Streamable = Union[BufferedReader, StringIO, IO[Any]]
@@ -24,6 +25,35 @@ Streamable = Union[BufferedReader, StringIO, IO[Any]]
 
 class UploadPollingException(Exception):
     pass
+
+
+@dataclass
+class FileDescriptor:
+    file_uuid: str
+    file_version: str
+    file_name: str
+    content_type: str
+    size: int
+    checksums: FileChecksums
+
+    def to_dict(self) -> Dict:
+        return dict(
+            file_id=self.file_uuid,
+            file_version=self.file_version,
+            file_name=self.file_name,
+            content_type=self.content_type,
+            size=self.size,
+            sha1=self.checksums.sha1,
+            sha256=self.checksums.sha256,
+            crc32c=self.checksums.crc32c,
+            s3_etag=self.checksums.s3_etag
+        )
+
+    @staticmethod
+    def from_file_metadata(file_metadata: MetadataResource) -> 'FileDescriptor':
+        data_file = DataFile.from_file_metadata(file_metadata)
+        return FileDescriptor(file_metadata.uuid, file_metadata.dcp_version, data_file.file_name,
+                              data_file.content_type, data_file.size, data_file.checksums)
 
 
 class GcsStorage:
@@ -106,20 +136,34 @@ class DcpStagingClient:
     def write_metadata(self, metadata: MetadataResource):
         dest_object_key = f'metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
 
-        if metadata.metadata_type != "file":
-            metadata_json = metadata.get_content(with_provenance=True)
-            data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
-            self.write_to_staging_bucket(dest_object_key, data_stream)
-        else:
-            converted_file_metadata = DcpStagingClient.convert_file_metadata(metadata)
-            data_stream = DcpStagingClient.dict_to_json_stream(converted_file_metadata.get_content(with_provenance=True))
-            self.write_to_staging_bucket(dest_object_key, data_stream)
+        metadata_json = metadata.get_content(with_provenance=True)
+        data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
+        self.write_to_staging_bucket(dest_object_key, data_stream)
+
+        if metadata.metadata_type == "file":
+            self.write_file_descriptor(metadata)
 
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
         dest_object_key = f'links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
         links_json = self.generate_links_json(link_set)
         data_stream = DcpStagingClient.dict_to_json_stream(links_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
+
+    def write_file_descriptor(self, file_metadata: MetadataResource):
+        dest_object_key = f'descriptors/{file_metadata.concrete_type()}/{file_metadata.uuid}_{file_metadata.dcp_version}.json'
+        file_descriptor_json = self.generate_file_desciptor_json(file_metadata)
+        data_stream = DcpStagingClient.dict_to_json_stream(file_descriptor_json)
+        self.write_to_staging_bucket(dest_object_key, data_stream)
+
+    def generate_file_desciptor_json(self, file_metadata) -> Dict:
+        latest_file_descriptor_schema = self.schema_service.cached_latest_file_descriptor_schema()
+
+        file_descriptor = FileDescriptor.from_file_metadata(file_metadata)
+        file_descriptor_dict = file_descriptor.to_dict()
+        file_descriptor_dict["describedBy"] = latest_file_descriptor_schema.schema_url
+        file_descriptor_dict["schema_version"] = latest_file_descriptor_schema.schema_version
+
+        return file_descriptor_dict
 
     def write_data_files(self, data_files: Iterable[DataFile]):
         for data_file in data_files:
@@ -142,7 +186,7 @@ class DcpStagingClient:
         self.gcs_storage.write(object_key, data_stream)
 
     def generate_links_json(self, link_set: LinkSet) -> Dict:
-        latest_links_schema = self.schema_service.latest_links_schema()
+        latest_links_schema = self.schema_service.cached_latest_links_schema()
 
         links_json = link_set.to_dict()
         links_json["describedBy"] = latest_links_schema.schema_url
@@ -164,47 +208,6 @@ class DcpStagingClient:
         :return: the S3 Object data as a BufferedReader stream
         """
         return BufferedReader(s3_object["Body"]._raw_stream, buffer_size=8192)  # 8kb
-
-    @staticmethod
-    def convert_file_metadata(file_metadata: MetadataResource) -> MetadataResource:
-        """
-        This function is file-schema aware, and must:
-
-        (i) transform the filename property to the form of {dataFileUuid}_{dataFileVersion}_{filename}.
-        (ii) add information such as file sizes, checksums, and content-type
-
-        The dataFileVersion isn't defined in ingest, so we'll re-use the dcpVersion
-        of the file_metadata here
-        :return: DCPv2 MVP-ready file metadata
-        """
-
-        if file_metadata.full_resource is not None:
-            data_file = DataFile.from_file_metadata(file_metadata)
-            data_file_uuid = data_file.uuid
-            data_file_version = file_metadata.dcp_version
-            filename = data_file.file_name
-
-            new_file_metadata = deepcopy(file_metadata)
-
-            new_name = f'{data_file_uuid}_{data_file_version}_{filename}'
-            new_file_metadata.full_resource["content"]["file_core"]["file_name"] = new_name
-
-            file_integrity: Dict[str, Any] = dict()
-
-            file_integrity["sha256"] = data_file.checksums.sha256
-            file_integrity["crc32c"] = data_file.checksums.crc32c
-            file_integrity["sha1"] = data_file.checksums.sha1
-            file_integrity["s3_etag"] = data_file.checksums.s3_etag
-            file_integrity["size"] = data_file.size
-            file_integrity["content_type"] = data_file.content_type.split(";")[0]
-
-            new_file_metadata.full_resource["content"]["file_core"].update(file_integrity)
-
-            return new_file_metadata
-        else:
-            raise DcpStagingException(f'Error: File metadata must contain full resource information (dataFileUuid in '
-                                      f'particular) for generating valid DCP2 filenames. Metadata resource:\n\n '
-                                      f'{file_metadata.metadata_json}')
 
     class Builder:
         def __init__(self):
