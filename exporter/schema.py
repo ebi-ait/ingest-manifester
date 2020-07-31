@@ -28,7 +28,7 @@ class SchemaService:
 
     def __init__(self, ingest_client: IngestApi, ttl: Optional[int] = None):
         self.ingest_client = ingest_client
-        self.ttl = ttl if ttl is not None else 600
+        self.ttl = ttl if ttl is not None else 300
 
         self.cached_latest_links_schema = ttl_cache(ttl=self.ttl)(self.latest_links_schema)
         self.cached_latest_file_descriptor_schema = ttl_cache(ttl=self.ttl)(self.latest_file_descriptor_schema)
