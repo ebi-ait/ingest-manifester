@@ -10,6 +10,8 @@ from google.oauth2.service_account import Credentials
 from google.api_core.exceptions import PreconditionFailed
 from mypy_boto3_s3 import S3Client
 from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
+from mypy_boto3.boto3_session import Session
+from smart_open import open
 import boto3
 import json
 import logging
@@ -76,7 +78,7 @@ class GcsStorage:
         try:
             dest_key = f'{self.storage_prefix}/{object_key}'
             staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-            blob: storage.Blob = staging_bucket.blob(dest_key)
+            blob: storage.Blob = staging_bucket.blob(dest_key, chunk_size=1024 * 256 * 20)
 
             if not blob.exists():
                 blob.upload_from_file(data_stream, if_generation_match=0)
@@ -122,8 +124,8 @@ class DcpStagingException(Exception):
 
 class DcpStagingClient:
 
-    def __init__(self, s3_client: S3Client, gcs_storage: GcsStorage, schema_service: SchemaService):
-        self.s3_client = s3_client
+    def __init__(self, boto_session: Session, gcs_storage: GcsStorage, schema_service: SchemaService):
+        self.boto_session = boto_session
         self.gcs_storage = gcs_storage
         self.schema_service = schema_service
 
@@ -172,12 +174,7 @@ class DcpStagingClient:
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
-            source_bucket = data_file.source_bucket()
-            source_key = data_file.source_key()
-
-            s3_object = self.s3_client.get_object(Bucket=source_bucket, Key=source_key)
-            s3_object_stream = DcpStagingClient.s3_download_stream(s3_object)
-
+            s3_object_stream = open(data_file.cloud_url, transport_params=dict(session=self.boto_session), ignore_ext=True)
             self.write_to_staging_bucket(dest_object_key, s3_object_stream)
 
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
@@ -210,7 +207,7 @@ class DcpStagingClient:
     class Builder:
         def __init__(self):
             self.gcs_storage = None
-            self.s3_client = None
+            self.session = None
             self.schema_service = None
 
         def with_gcs_info(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str) -> 'DcpStagingClient.Builder':
@@ -224,11 +221,8 @@ class DcpStagingClient:
                 return self
 
         def aws_access_key(self, aws_access_key_id: str, aws_access_key_secret: str) -> 'DcpStagingClient.Builder':
-            self.s3_client = boto3.client('s3',
-                                          aws_access_key_id=aws_access_key_id,
-                                          aws_secret_access_key=aws_access_key_secret,
-                                          region_name="us-east-1"
-                                          )
+            self.session = boto3.Session(aws_access_key_id=aws_access_key_id,
+                                         aws_secret_access_key=aws_access_key_secret)
             return self
 
         def with_schema_service(self, schema_service: SchemaService) -> 'DcpStagingClient.Builder':
@@ -238,10 +232,10 @@ class DcpStagingClient:
         def build(self) -> 'DcpStagingClient':
             if not self.gcs_storage:
                 raise Exception("gcs_storage must be set")
-            elif not self.s3_client:
+            elif not self.session:
                 raise Exception("s3_client must be set")
             elif not self.schema_service:
                 raise Exception("schema_service must be set")
             else:
-                return DcpStagingClient(self.s3_client, self.gcs_storage, self.schema_service)
+                return DcpStagingClient(self.session, self.gcs_storage, self.schema_service)
 

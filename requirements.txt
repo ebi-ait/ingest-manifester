@@ -7,3 +7,4 @@ boto3
 boto3-stubs[s3]
 cachetools
 -e git+https://github.com/HumanCellAtlas/ingest-client.git@74472037#egg=hca_ingest
+smart_open[all]
