@@ -174,7 +174,7 @@ class DcpStagingClient:
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
-            s3_object_stream = open(data_file.cloud_url, transport_params=dict(session=self.boto_session), ignore_ext=True)
+            s3_object_stream = open(data_file.cloud_url, 'rb', transport_params=dict(session=self.boto_session), ignore_ext=True)
             self.write_to_staging_bucket(dest_object_key, s3_object_stream)
 
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
@@ -193,16 +193,6 @@ class DcpStagingClient:
     @staticmethod
     def dict_to_json_stream(d: Dict) -> StringIO:
         return StringIO(json.dumps(d))
-
-    @staticmethod
-    def s3_download_stream(s3_object: S3Object) -> Streamable:
-        """
-        The boto3 StreamingBody isn't really a file-like stream as purported in the documentation.
-        This function returns a BufferedReader using the underlying protected _raw_stream of a StreamingBody
-        :param s3_object:
-        :return: the S3 Object data as a BufferedReader stream
-        """
-        return BufferedReader(s3_object["Body"]._raw_stream, buffer_size=8192)  # 8kb
 
     class Builder:
         def __init__(self):
