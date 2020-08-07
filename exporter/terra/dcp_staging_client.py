@@ -3,13 +3,11 @@ from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
 from typing import Iterable, IO, Dict, Any, Union
 
-from copy import deepcopy
 from io import StringIO, BufferedReader
 
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
 from google.api_core.exceptions import PreconditionFailed
-from http import HTTPStatus
 from mypy_boto3_s3 import S3Client
 from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
 import boto3
@@ -68,7 +66,7 @@ class GcsStorage:
     def file_exists(self, object_key: str) -> bool:
         dest_key = f'{self.storage_prefix}/{object_key}'
         staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-        blob: storage.Blob = staging_bucket.get_blob(dest_key)
+        blob: storage.Blob = staging_bucket.blob(dest_key)
 
         return blob.exists() and \
                blob.metadata is not None and \
@@ -95,7 +93,7 @@ class GcsStorage:
     def assert_file_uploaded(self, object_key):
         dest_key = f'{self.storage_prefix}/{object_key}'
         staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-        blob = staging_bucket.get_blob(dest_key)
+        blob = staging_bucket.blob(dest_key)
 
         one_hour_in_seconds = 60 * 60
         one_hundred_milliseconds = 0.1
