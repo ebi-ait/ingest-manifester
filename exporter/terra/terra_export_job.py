@@ -64,6 +64,7 @@ class TerraExportJobService:
         assay_export_entity = TerraExportEntity(assay_process_id, [])
         create_export_entity_url = self.get_export_entities_url(job_id)
         requests.post(create_export_entity_url, assay_export_entity.to_dict(), json=True).raise_for_status()
+        self._maybe_complete_job(job_id)
 
     def _maybe_complete_job(self, job_id):
         export_job = self.get_job(job_id)
