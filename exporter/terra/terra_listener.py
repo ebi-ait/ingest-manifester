@@ -8,6 +8,8 @@ from typing import Type, List, Dict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+from exporter.terra.terra_export_job import TerraExportJobService
+
 import logging
 import json
 
@@ -25,6 +27,7 @@ class ExperimentMessage:
     experiment_version: str
     experiment_index: int
     total: int
+    job_id: str
 
     @staticmethod
     def from_dict(data: Dict) -> 'ExperimentMessage':
@@ -64,12 +67,14 @@ class _TerraListener(ConsumerProducerMixin):
     def __init__(self,
                  connection: Connection,
                  terra_exporter: TerraExporter,
+                 job_service: TerraExportJobService,
                  experiment_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
                  publish_queue_config: QueueConfig,
                  executor: ThreadPoolExecutor):
         self.connection = connection
         self.terra_exporter = terra_exporter
+        self.job_service = job_service
         self.experiment_queue_config = experiment_queue_config
         self.update_queue_config = update_queue_config
         self.publish_queue_config = publish_queue_config
@@ -98,6 +103,8 @@ class _TerraListener(ConsumerProducerMixin):
             self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
             self.terra_exporter.export(exp.process_uuid, exp.experiment_uuid, exp.experiment_version)
             self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
+            self.log_complete_assay(exp.job_id, exp.process_id)
+
             self.producer.publish(json.loads(body),
                 exchange=self.publish_queue_config.exchange,
                 routing_key=self.publish_queue_config.routing_key,
@@ -122,6 +129,9 @@ class _TerraListener(ConsumerProducerMixin):
 
         msg.ack()
 
+    def log_complete_assay(self, job_id: str, assay_process_id: str):
+        self.job_service.complete_assay(job_id, assay_process_id)
+
     @staticmethod
     def queue_from_config(queue_config: QueueConfig) -> Queue:
         exchange = Exchange(queue_config.exchange, queue_config.exchange_type)
@@ -133,16 +143,18 @@ class TerraListener:
     def __init__(self,
                  amqp_conn_config: AmqpConnConfig,
                  terra_exporter: TerraExporter,
+                 job_service: TerraExportJobService,
                  experiment_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
                  publish_queue_config: QueueConfig):
         self.amqp_conn_config = amqp_conn_config
         self.terra_exporter = terra_exporter
+        self.job_service = job_service
         self.experiment_queue_config = experiment_queue_config
         self.update_queue_config = update_queue_config
         self.publish_queue_config = publish_queue_config
 
     def run(self):
         with Connection(self.amqp_conn_config.broker_url()) as conn:
-            _terra_listener = _TerraListener(conn, self.terra_exporter, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
+            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
             _terra_listener.run()
