@@ -88,6 +88,7 @@ class TerraExportJobService:
     def get_export_entities_url(self, job_id: str):
         return self.ingest_client.get_full_url(f'/exportJobs/{job_id}/entities')
 
-    def get_num_entities_for_job(self, job_id: str) -> int:
+    def get_num_complete_entities_for_job(self, job_id: str) -> int:
         entities_url = self.get_export_entities_url(job_id)
-        return int(self.ingest_client.get(entities_url).json()["page"]["totalElements"])
+        find_entities_by_status_url = f'{entities_url}/status={ExportJobState.EXPORTED.value}'
+        return int(self.ingest_client.get(find_entities_by_status_url).json()["page"]["totalElements"])
