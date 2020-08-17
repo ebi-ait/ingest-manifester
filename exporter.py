@@ -10,6 +10,7 @@ from exporter.graph.graph_crawler import GraphCrawler
 from exporter.terra.dcp_staging_client import DcpStagingClient
 from exporter.schema import SchemaService
 from exporter.terra.terra_listener import TerraListener
+from exporter.terra.terra_export_job import TerraExportJobService
 from exporter.amqp import AmqpConnConfig, QueueConfig
 
 from kombu import Connection, Exchange, Queue
@@ -97,6 +98,7 @@ def setup_terra_exporter() -> Thread:
                           .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)
+    terra_job_service = TerraExportJobService(ingest_client)
 
     rabbit_host = os.environ.get('RABBIT_HOST', 'localhost')
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
@@ -105,7 +107,7 @@ def setup_terra_exporter() -> Thread:
     update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
     publish_queue_config = QueueConfig(None, EXPERIMENT_COMPLETED_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
 
-    terra_listener = TerraListener(amqp_conn_config, terra_exporter, experiment_queue_config, update_queue_config, publish_queue_config)
+    terra_listener = TerraListener(amqp_conn_config, terra_exporter, terra_job_service, experiment_queue_config, update_queue_config, publish_queue_config)
 
     terra_exporter_listener_process = Thread(target=lambda: terra_listener.run())
     terra_exporter_listener_process.start()

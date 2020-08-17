@@ -50,9 +50,9 @@ class FileDescriptor:
         )
 
     @staticmethod
-    def from_file_metadata(file_metadata: MetadataResource) -> 'FileDescriptor':
+    def from_file_metadata(file_metadata: MetadataResource, name: str) -> 'FileDescriptor':
         data_file = DataFile.from_file_metadata(file_metadata)
-        return FileDescriptor(file_metadata.uuid, file_metadata.dcp_version, data_file.file_name,
+        return FileDescriptor(data_file.uuid, file_metadata.dcp_version, name,
                               data_file.content_type, data_file.size, data_file.checksums)
 
 
@@ -157,8 +157,9 @@ class DcpStagingClient:
 
     def generate_file_desciptor_json(self, file_metadata) -> Dict:
         latest_file_descriptor_schema = self.schema_service.cached_latest_file_descriptor_schema()
+        data_file = DataFile.from_file_metadata(file_metadata)
+        file_descriptor = FileDescriptor.from_file_metadata(file_metadata, DcpStagingClient.data_file_obj_key(data_file))
 
-        file_descriptor = FileDescriptor.from_file_metadata(file_metadata)
         file_descriptor_dict = file_descriptor.to_dict()
         file_descriptor_dict["describedBy"] = latest_file_descriptor_schema.schema_url
         file_descriptor_dict["schema_version"] = latest_file_descriptor_schema.schema_version
@@ -170,7 +171,7 @@ class DcpStagingClient:
             self.write_data_file(data_file)
 
     def write_data_file(self, data_file: DataFile):
-        dest_object_key = f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
+        dest_object_key = DcpStagingClient.data_file_obj_key(data_file)
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
@@ -193,6 +194,10 @@ class DcpStagingClient:
     @staticmethod
     def dict_to_json_stream(d: Dict) -> StringIO:
         return StringIO(json.dumps(d))
+
+    @staticmethod
+    def data_file_obj_key(data_file: DataFile) -> str:
+        return f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
 
     class Builder:
         def __init__(self):
