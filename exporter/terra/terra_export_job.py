@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Dict, Set
+from typing import List, Dict
 from ingest.api.ingestapi import IngestApi
 import requests
+import json
 
 from enum import Enum
 
@@ -28,7 +29,7 @@ class TerraExportEntity:
         converts to a JSON as represented in ingest-core API
         """
         return {
-            "status": ExportJobState.EXPORTED,
+            "status": ExportJobState.EXPORTED.value,
             "context": {
                 "assayProcessId": self.assay_process_id
             },
@@ -51,9 +52,9 @@ class TerraExportJob:
 
     @staticmethod
     def from_dict(data: Dict) -> 'TerraExportJob':
-        job_id = str(data["_link"]["self"]["href"]).split("/")[0]
-        num_expected_assays = int(data["context"]["expectedAssays"])
-        return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["state"]))
+        job_id = str(data["_links"]["self"]["href"]).split("/")[0]
+        num_expected_assays = int(data["context"]["totalAssayCount"])
+        return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["status"].upper()))
 
 
 class TerraExportJobService:
@@ -63,12 +64,13 @@ class TerraExportJobService:
     def complete_assay(self, job_id: str, assay_process_id: str):
         assay_export_entity = TerraExportEntity(assay_process_id, [])
         create_export_entity_url = self.get_export_entities_url(job_id)
-        requests.post(create_export_entity_url, assay_export_entity.to_dict(), json=True).raise_for_status()
+        requests.post(create_export_entity_url, json.dumps(assay_export_entity.to_dict()),
+                      headers={"Content-type": "application/json"}, json=True).raise_for_status()
         self._maybe_complete_job(job_id)
 
     def _maybe_complete_job(self, job_id):
         export_job = self.get_job(job_id)
-        if export_job.num_expected_assays == self.get_num_entities_for_job(job_id):
+        if export_job.num_expected_assays == self.get_num_complete_entities_for_job(job_id):
             self.complete_job(job_id)
 
     def complete_job(self, job_id: str):
@@ -85,10 +87,10 @@ class TerraExportJobService:
     def get_job_url(self, job_id: str) -> str:
         return self.ingest_client.get_full_url(f'/exportJobs/{job_id}')
 
-    def get_export_entities_url(self, job_id: str):
+    def get_export_entities_url(self, job_id: str) -> str:
         return self.ingest_client.get_full_url(f'/exportJobs/{job_id}/entities')
 
     def get_num_complete_entities_for_job(self, job_id: str) -> int:
         entities_url = self.get_export_entities_url(job_id)
-        find_entities_by_status_url = f'{entities_url}/status={ExportJobState.EXPORTED.value}'
+        find_entities_by_status_url = f'{entities_url}?status={ExportJobState.EXPORTED.value}'
         return int(self.ingest_client.get(find_entities_by_status_url).json()["page"]["totalElements"])

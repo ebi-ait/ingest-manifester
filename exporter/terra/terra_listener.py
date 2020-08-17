@@ -32,14 +32,14 @@ class ExperimentMessage:
     @staticmethod
     def from_dict(data: Dict) -> 'ExperimentMessage':
         try:
-            return ExperimentMessage(
-                                     data["documentId"],
+            return ExperimentMessage(data["documentId"],
                                      data["documentUuid"],
                                      data["envelopeUuid"],
                                      data["bundleUuid"],
                                      data["versionTimestamp"],
                                      data["index"],
-                                     data["total"])
+                                     data["total"],
+                                     data["exportJobId"])
         except (KeyError, TypeError) as e:
             raise ExperimentMessageParseExpection(e)
 
