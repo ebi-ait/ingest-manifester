@@ -50,8 +50,9 @@ class FileDescriptor:
         )
 
     @staticmethod
-    def from_file_metadata(file_metadata: MetadataResource, name: str) -> 'FileDescriptor':
+    def from_file_metadata(file_metadata: MetadataResource) -> 'FileDescriptor':
         data_file = DataFile.from_file_metadata(file_metadata)
+        name = f'{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
         return FileDescriptor(data_file.uuid, file_metadata.dcp_version, name,
                               data_file.content_type, data_file.size, data_file.checksums)
 
@@ -157,8 +158,7 @@ class DcpStagingClient:
 
     def generate_file_desciptor_json(self, file_metadata) -> Dict:
         latest_file_descriptor_schema = self.schema_service.cached_latest_file_descriptor_schema()
-        data_file = DataFile.from_file_metadata(file_metadata)
-        file_descriptor = FileDescriptor.from_file_metadata(file_metadata, DcpStagingClient.data_file_obj_key(data_file))
+        file_descriptor = FileDescriptor.from_file_metadata(file_metadata)
 
         file_descriptor_dict = file_descriptor.to_dict()
         file_descriptor_dict["describedBy"] = latest_file_descriptor_schema.schema_url
