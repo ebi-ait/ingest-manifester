@@ -109,7 +109,7 @@ class GcsXferStorage:
                     raise Exception(f'Failed to parse transferOperations') from e
 
     def create_transfer_client(self):
-        return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials)
+        return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)
 
     @staticmethod
     def transfer_job_name(data_file: DataFile) -> str:
