@@ -94,19 +94,14 @@ class GcsXferStorage:
                                                                 "job_names": [job_name]
                                                             }))
             response: Dict = request.execute()
-            if not response.get("operations"):
-                raise Exception(f'No transfer operations for transferJob {job_name}')
-            else:
-                try:
-                    transfer_operations = response["operations"]
-                    transfer_operation = transfer_operations[0]
-                    if transfer_operation.get("done"):
-                        return
-                    else:
-                        time.sleep(wait_time)
-                        return self._assert_file_transferred(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
-                except (KeyError, IndexError) as e:
-                    raise Exception(f'Failed to parse transferOperations') from e
+            try:
+                if response.get("operations") and len(response["operations"]) > 0 and response["operations"][0].get("done"):
+                    return
+                else:
+                    time.sleep(wait_time)
+                    return self._assert_file_transferred(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
+            except (KeyError, IndexError) as e:
+                raise Exception(f'Failed to parse transferOperations') from e
 
     def create_transfer_client(self):
         return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)
