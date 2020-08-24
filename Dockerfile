@@ -1,4 +1,4 @@
-FROM python:3-alpine
+FROM python:3.7-alpine
 MAINTAINER Simon Jupp "jupp@ebi.ac.uk"
 
 RUN apk update && \
