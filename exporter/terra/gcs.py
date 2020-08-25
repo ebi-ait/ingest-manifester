@@ -13,6 +13,7 @@ from io import StringIO, BufferedReader
 
 from time import sleep
 from dataclasses import dataclass
+from googleapiclient.errors import HttpError
 
 
 @dataclass
@@ -29,6 +30,7 @@ class TransferJobSpec:
     def to_dict(self) -> Dict:
         start_date = datetime.now()
         return {
+            'name': self.name,
             'description': self.description,
             'status': 'ENABLED',
             'projectId': self.project_id,
@@ -74,17 +76,38 @@ class GcsXferStorage:
 
         self.client = self.create_transfer_client()
 
+    def transfer_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str):
+        transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, export_job_id)
+        try:
+            self.client.transferJobs().create(body=transfer_job.to_dict()).execute()
+            self.assert_job_complete(transfer_job.name)
+        except HttpError as e:
+            if e.resp.status == 409:
+                self.assert_job_complete(transfer_job.name)
+            else:
+                raise
+
+    def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str) -> TransferJobSpec:
+        return TransferJobSpec(name=f'transferJobs/{export_job_id}',
+                               description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
+                               project_id=self.project_id,
+                               source_bucket=source_bucket,
+                               source_key=upload_area_key,
+                               dest_bucket=self.gcs_dest_bucket,
+                               aws_access_key_id=self.aws_access_key_id,
+                               aws_access_key_secret=self.aws_access_key_secret)
+
     def transfer(self,  data_file: DataFile):
         transfer_job = self.create_transfer_job(data_file)
         job_name = self.client.transferJobs().create(body=transfer_job.to_dict()).execute()["name"]
-        self.assert_file_transferred(job_name)
+        self.assert_job_complete(job_name)
 
-    def assert_file_transferred(self, job_name):
+    def assert_job_complete(self, job_name):
         two_seconds = 2
-        one_hour_in_seconds = 60 * 60
-        return self._assert_file_transferred(job_name, two_seconds, 0, one_hour_in_seconds)
+        three_hours_in_seconds = 60 * 60 * 3
+        return self._assert_job_complete(job_name, two_seconds, 0, three_hours_in_seconds)
 
-    def _assert_file_transferred(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
+    def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
         if time_waited > max_wait_time_secs:
             raise Exception(f'Timeout waiting for transfer job to success for job {job_name}')
         else:
@@ -99,7 +122,7 @@ class GcsXferStorage:
                     return
                 else:
                     time.sleep(wait_time)
-                    return self._assert_file_transferred(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
+                    return self._assert_job_complete(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
             except (KeyError, IndexError) as e:
                 raise Exception(f'Failed to parse transferOperations') from e
 
@@ -108,7 +131,7 @@ class GcsXferStorage:
 
     @staticmethod
     def transfer_job_name(data_file: DataFile) -> str:
-        return data_file.checksums.sha256
+        return f'transferJobs/{data_file.checksums.sha256}'
 
     def create_transfer_job(self, data_file: DataFile) -> TransferJobSpec:
         return TransferJobSpec(name=self.transfer_job_name(data_file),

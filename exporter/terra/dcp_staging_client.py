@@ -2,7 +2,7 @@ from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
 from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable
-from typing import Iterable, Dict
+from typing import Iterable, Dict, Tuple
 
 from io import StringIO
 
@@ -54,6 +54,11 @@ class DcpStagingClient:
         self.gcs_xfer = gcs_xfer
         self.schema_service = schema_service
 
+    def transfer_data_files(self, submission: Dict, export_job_id: str):
+        upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
+        bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
+        self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], export_job_id)
+
     def write_metadatas(self, metadatas: Iterable[MetadataResource]):
         for metadata in metadatas:
             self.write_metadata(metadata)
@@ -99,7 +104,6 @@ class DcpStagingClient:
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
-            self.gcs_xfer.transfer(data_file)
             self.gcs_storage.move_file(data_file.source_key(), dest_object_key)
 
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
@@ -122,6 +126,13 @@ class DcpStagingClient:
     @staticmethod
     def data_file_obj_key(data_file: DataFile) -> str:
         return f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
+
+    @staticmethod
+    def bucket_and_key_for_upload_area(upload_area: str) -> Tuple[str, str]:
+        bucket_and_key_str = upload_area.split("//")[1]
+        bucket_and_key_list = bucket_and_key_str.split("/", 1)
+
+        return bucket_and_key_list[0], bucket_and_key_list[1].split("/")[0]
 
     class Builder:
         def __init__(self):
@@ -160,4 +171,3 @@ class DcpStagingClient:
                 raise Exception("schema_service must be set")
             else:
                 return DcpStagingClient(self.gcs_storage, self.gcs_xfer, self.schema_service)
-

@@ -101,7 +101,7 @@ class _TerraListener(ConsumerProducerMixin):
         try:
             exp = ExperimentMessage.from_dict(json.loads(body))
             self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
-            self.terra_exporter.export(exp.process_uuid, exp.experiment_uuid, exp.experiment_version)
+            self.terra_exporter.export(exp.process_uuid, exp.submission_uuid, exp.experiment_uuid, exp.experiment_version, exp.job_id)
             self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
             self.log_complete_assay(exp.job_id, exp.process_id)
 
