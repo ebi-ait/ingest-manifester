@@ -1,5 +1,5 @@
 import googleapiclient.discovery
-from typing import IO, Dict, Any, Union
+from typing import IO, Dict, Any, Union, Optional
 from exporter.metadata import DataFile
 from datetime import datetime
 import time
@@ -80,9 +80,14 @@ class GcsXferStorage:
 
     def transfer_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str):
         transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, export_job_id)
+
         try:
-            self.client.transferJobs().create(body=transfer_job.to_dict()).execute()
-            self.assert_job_complete(transfer_job.name)
+            maybe_existing_job = self.get_job(transfer_job.name)
+            if maybe_existing_job is not None:
+                self.assert_job_complete(transfer_job.name)
+            else:
+                self.client.transferJobs().create(body=transfer_job.to_dict()).execute()
+                self.assert_job_complete(transfer_job.name)
         except HttpError as e:
             if e.resp.status == 409:
                 self.assert_job_complete(transfer_job.name)
@@ -98,6 +103,17 @@ class GcsXferStorage:
                                dest_bucket=self.gcs_dest_bucket,
                                aws_access_key_id=self.aws_access_key_id,
                                aws_access_key_secret=self.aws_access_key_secret)
+
+    def get_job(self, job_name: str) -> Optional[Dict]:
+        try:
+            maybe_existing_job = self.client.transferJobs().get(jobName=job_name,
+                                                                projectId=self.project_id).execute()
+            return maybe_existing_job
+        except HttpError as e:
+            if e.resp.status == 404:
+                return None
+            else:
+                raise
 
     def assert_job_complete(self, job_name):
         two_seconds = 2
