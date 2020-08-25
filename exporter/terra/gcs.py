@@ -110,20 +110,23 @@ class GcsXferStorage:
         return self._get_job(job_name, two_seconds, 0, two_minutes_in_seconds)
 
     def _get_job(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int) -> Optional[Dict]:
-        try:
-            maybe_existing_job = self.client.transferJobs().get(jobName=job_name,
-                                                                projectId=self.project_id).execute()
-            return maybe_existing_job
-        except HttpError as e:
-            if e.resp.status == 404:
-                return None
-            elif e.resp.status == 429:
-                self.logger.info(f'Rate-limited for request to read transferJob {job_name}. Waiting {str(wait_time)} seconds.'
-                                 f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
-                time.sleep(wait_time)
-                return self._get_job(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
-            else:
-                raise
+        if time_waited > max_wait_time_secs:
+            raise Exception(f'Timeout trying to read transfer job {job_name}')
+        else:
+            try:
+                maybe_existing_job = self.client.transferJobs().get(jobName=job_name,
+                                                                    projectId=self.project_id).execute()
+                return maybe_existing_job
+            except HttpError as e:
+                if e.resp.status == 404:
+                    return None
+                elif e.resp.status == 429:
+                    self.logger.info(f'Rate-limited for request to read transferJob {job_name}. Waiting {str(wait_time)} seconds.'
+                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
+                    time.sleep(wait_time)
+                    return self._get_job(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
+                else:
+                    raise
 
     def assert_job_complete(self, job_name: str):
         two_seconds = 2
@@ -132,7 +135,7 @@ class GcsXferStorage:
 
     def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
         if time_waited > max_wait_time_secs:
-            raise Exception(f'Timeout waiting for transfer job to success for job {job_name}')
+            raise Exception(f'Timeout waiting for transfer job to succeed for job {job_name}')
         else:
             request = self.client.transferOperations().list(name="transferOperations",
                                                             filter=json.dumps({
