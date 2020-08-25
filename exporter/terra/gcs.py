@@ -105,6 +105,11 @@ class GcsXferStorage:
                                aws_access_key_secret=self.aws_access_key_secret)
 
     def get_job(self, job_name: str) -> Optional[Dict]:
+        two_seconds = 2
+        two_minutes_in_seconds = 60 * 2
+        return self._get_job(job_name, two_seconds, 0, two_minutes_in_seconds)
+
+    def _get_job(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int) -> Optional[Dict]:
         try:
             maybe_existing_job = self.client.transferJobs().get(jobName=job_name,
                                                                 projectId=self.project_id).execute()
@@ -112,10 +117,15 @@ class GcsXferStorage:
         except HttpError as e:
             if e.resp.status == 404:
                 return None
+            elif e.resp.status == 429:
+                self.logger.info(f'Rate-limited for request to read transferJob {job_name}. Waiting {str(wait_time)} seconds.'
+                                 f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
+                time.sleep(wait_time)
+                return self._get_job(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
             else:
                 raise
 
-    def assert_job_complete(self, job_name):
+    def assert_job_complete(self, job_name: str):
         two_seconds = 2
         three_hours_in_seconds = 60 * 60 * 3
         return self._assert_job_complete(job_name, two_seconds, 0, three_hours_in_seconds)
