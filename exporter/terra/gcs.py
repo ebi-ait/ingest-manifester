@@ -75,6 +75,8 @@ class GcsXferStorage:
         self.credentials = credentials
 
         self.client = self.create_transfer_client()
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
     def transfer_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str):
         transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, export_job_id)
@@ -116,6 +118,8 @@ class GcsXferStorage:
                 if response.get("operations") and len(response["operations"]) > 0 and response["operations"][0].get("done"):
                     return
                 else:
+                    self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(wait_time)} seconds.'
+                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
                     time.sleep(wait_time)
                     return self._assert_job_complete(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
             except (KeyError, IndexError) as e:
