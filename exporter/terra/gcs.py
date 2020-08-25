@@ -97,11 +97,6 @@ class GcsXferStorage:
                                aws_access_key_id=self.aws_access_key_id,
                                aws_access_key_secret=self.aws_access_key_secret)
 
-    def transfer(self,  data_file: DataFile):
-        transfer_job = self.create_transfer_job(data_file)
-        job_name = self.client.transferJobs().create(body=transfer_job.to_dict()).execute()["name"]
-        self.assert_job_complete(job_name)
-
     def assert_job_complete(self, job_name):
         two_seconds = 2
         three_hours_in_seconds = 60 * 60 * 3
@@ -128,20 +123,6 @@ class GcsXferStorage:
 
     def create_transfer_client(self):
         return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)
-
-    @staticmethod
-    def transfer_job_name(data_file: DataFile) -> str:
-        return f'transferJobs/{data_file.checksums.sha256}'
-
-    def create_transfer_job(self, data_file: DataFile) -> TransferJobSpec:
-        return TransferJobSpec(name=self.transfer_job_name(data_file),
-                               description=f'HCA data-file: {data_file.uuid}',
-                               project_id=self.project_id,
-                               source_bucket=data_file.source_bucket(),
-                               source_key=data_file.source_key(),
-                               dest_bucket=self.gcs_dest_bucket,
-                               aws_access_key_id=self.aws_access_key_id,
-                               aws_access_key_secret=self.aws_access_key_secret)
 
 
 class UploadPollingException(Exception):
