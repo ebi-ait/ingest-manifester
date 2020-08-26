@@ -103,9 +103,12 @@ class _TerraListener(ConsumerProducerMixin):
     def _experiment_message_handler(self, body: str, msg: Message):
         try:
             exp = ExperimentMessage.from_dict(json.loads(body))
-            self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
-            self.terra_exporter.export(exp.process_uuid, exp.submission_uuid, exp.experiment_uuid, exp.experiment_version, exp.job_id)
-            self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
+            self.logger.info(
+                f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
+            self.terra_exporter.export(exp.process_uuid, exp.submission_uuid, exp.experiment_uuid,
+                                       exp.experiment_version, exp.job_id)
+            self.logger.info(
+                f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
             self.log_complete_assay(exp.job_id, exp.process_id)
 
             self.producer.publish(json.loads(body),
@@ -146,8 +149,14 @@ class _TerraListener(ConsumerProducerMixin):
             exp = ExperimentMessage.from_dict(json.loads(msg_body))
             submission = self.ingest_client.get_submission_by_uuid(exp.submission_uuid)
             submission_url = submission["_links"]["self"]["href"]
-            error_message = f'Failed to export assay process {exp.process_uuid}\nPlease contact the ingest help desk'
-            self.ingest_client.create_submission_error(submission_url, error_message)
+
+            error_message = f'Failed to export assay process {exp.process_uuid}, {msg_body}'
+            error = {
+                'type': 'http://exporter.ingest.data.humancellatlas.org/Error', # TODO type doesn't make any sense now
+                'title': 'An error occurred while exporting the experiment.',
+                'detail': error_message
+            }
+            self.ingest_client.create_submission_error(submission_url, error)
         except Exception as e:
             self.logger.exception(e)
 
@@ -172,5 +181,6 @@ class TerraListener:
 
     def run(self):
         with Connection(self.amqp_conn_config.broker_url()) as conn:
-            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
+            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config,
+                                             self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
             _terra_listener.run()
