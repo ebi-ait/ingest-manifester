@@ -216,7 +216,7 @@ class GcsStorage:
         patch_retryer = retry.Retry(predicate=retry.if_exception_type(ServiceUnavailable),
                                     deadline=60)
 
-        patch_retryer(lambda: blob.patch())
+        patch_retryer(lambda: blob.patch())()
 
     def assert_file_uploaded(self, object_key: str):
         dest_key = f'{self.storage_prefix}/{object_key}'
