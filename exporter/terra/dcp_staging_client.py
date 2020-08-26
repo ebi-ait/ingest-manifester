@@ -1,30 +1,16 @@
 from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
-from typing import Iterable, IO, Dict, Any, Union
+from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable
+from typing import Iterable, Dict, Tuple
 
-from io import StringIO, BufferedReader
+from io import StringIO
 
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
-from google.api_core.exceptions import PreconditionFailed
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef as S3Object
-from mypy_boto3.boto3_session import Session
-from smart_open import open
-import boto3
 import json
-import logging
 
-from time import sleep
 from dataclasses import dataclass
-
-
-Streamable = Union[BufferedReader, StringIO, IO[Any]]
-
-
-class UploadPollingException(Exception):
-    pass
 
 
 @dataclass
@@ -57,78 +43,21 @@ class FileDescriptor:
                               data_file.content_type, data_file.size, data_file.checksums)
 
 
-class GcsStorage:
-    def __init__(self, gcs_client: storage.Client, bucket_name: str, storage_prefix: str):
-        self.gcs_client = gcs_client
-        self.bucket_name = bucket_name
-        self.storage_prefix = storage_prefix
-
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
-
-    def file_exists(self, object_key: str) -> bool:
-        dest_key = f'{self.storage_prefix}/{object_key}'
-        staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-        blob: storage.Blob = staging_bucket.blob(dest_key)
-
-        return blob.exists() and \
-               blob.metadata is not None and \
-               blob.metadata.get("export_completed", False)
-
-    def write(self, object_key: str, data_stream: Streamable):
-        try:
-            dest_key = f'{self.storage_prefix}/{object_key}'
-            staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-            blob: storage.Blob = staging_bucket.blob(dest_key, chunk_size=1024 * 256 * 20)
-
-            if not blob.exists():
-                blob.upload_from_file(data_stream, if_generation_match=0)
-                blob.metadata = {"export_completed": True}
-                blob.patch()
-            else:
-                self.assert_file_uploaded(object_key)
-        except PreconditionFailed as e:
-            # With if_generation_match=0, this pre-condition failure indicates that another
-            # export instance has began uploading this file. We should not attempt to upload
-            # and instead poll for its completion
-            self.assert_file_uploaded(object_key)
-
-    def assert_file_uploaded(self, object_key):
-        dest_key = f'{self.storage_prefix}/{object_key}'
-        staging_bucket: storage.Bucket = self.gcs_client.bucket(self.bucket_name)
-        blob = staging_bucket.blob(dest_key)
-
-        one_hour_in_seconds = 60 * 60
-        one_hundred_milliseconds = 0.1
-        return self._assert_file_uploaded(blob, one_hundred_milliseconds, one_hour_in_seconds)
-
-    def _assert_file_uploaded(self, blob: storage.Blob, sleep_time: float, max_sleep_time: float):
-        if sleep_time > max_sleep_time:
-            raise UploadPollingException(f'Could not verify completed upload for blob {blob.name} within maximum '
-                                         f'wait time of {str(max_sleep_time)} seconds')
-        else:
-            sleep(sleep_time)
-            blob.reload()
-
-            export_completed = blob.metadata is not None and blob.metadata.get("export_completed")
-            if export_completed:
-                return
-            else:
-                new_sleep_time = sleep_time * 2
-                self.logger.info(f'Verifying upload of blob {blob.name}. Waiting for {str(new_sleep_time)} seconds...')
-                return self._assert_file_uploaded(blob, new_sleep_time, max_sleep_time)
-
-
 class DcpStagingException(Exception):
     pass
 
 
 class DcpStagingClient:
 
-    def __init__(self, boto_session: Session, gcs_storage: GcsStorage, schema_service: SchemaService):
-        self.boto_session = boto_session
+    def __init__(self, gcs_storage: GcsStorage, gcs_xfer: GcsXferStorage, schema_service: SchemaService):
         self.gcs_storage = gcs_storage
+        self.gcs_xfer = gcs_xfer
         self.schema_service = schema_service
+
+    def transfer_data_files(self, submission: Dict, export_job_id: str):
+        upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
+        bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
+        self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], export_job_id)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource]):
         for metadata in metadatas:
@@ -175,8 +104,7 @@ class DcpStagingClient:
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
-            s3_object_stream = open(data_file.cloud_url, 'rb', transport_params=dict(session=self.boto_session), ignore_ext=True)
-            self.write_to_staging_bucket(dest_object_key, s3_object_stream)
+            self.gcs_storage.move_file(data_file.source_key(), dest_object_key)
 
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
         self.gcs_storage.write(object_key, data_stream)
@@ -199,14 +127,21 @@ class DcpStagingClient:
     def data_file_obj_key(data_file: DataFile) -> str:
         return f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
 
+    @staticmethod
+    def bucket_and_key_for_upload_area(upload_area: str) -> Tuple[str, str]:
+        bucket_and_key_str = upload_area.split("//")[1]
+        bucket_and_key_list = bucket_and_key_str.split("/", 1)
+
+        return bucket_and_key_list[0], bucket_and_key_list[1].split("/")[0]
+
     class Builder:
         def __init__(self):
-            self.gcs_storage = None
-            self.session = None
             self.schema_service = None
+            self.gcs_storage = None
+            self.gcs_xfer = None
 
-        def with_gcs_info(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str) -> 'DcpStagingClient.Builder':
-
+        def with_gcs_info(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str,
+                          bucket_prefix: str) -> 'DcpStagingClient.Builder':
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
                 storage_credentials: Credentials = Credentials.from_service_account_info(info)
@@ -215,22 +150,24 @@ class DcpStagingClient:
 
                 return self
 
-        def aws_access_key(self, aws_access_key_id: str, aws_access_key_secret: str) -> 'DcpStagingClient.Builder':
-            self.session = boto3.Session(aws_access_key_id=aws_access_key_id,
-                                         aws_secret_access_key=aws_access_key_secret)
-            return self
+        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str):
+            with open(service_account_credentials_path) as source:
+                info = json.load(source)
+                credentials: Credentials = Credentials.from_service_account_info(info)
+                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials)
+
+                return self
 
         def with_schema_service(self, schema_service: SchemaService) -> 'DcpStagingClient.Builder':
             self.schema_service = schema_service
             return self
 
         def build(self) -> 'DcpStagingClient':
-            if not self.gcs_storage:
+            if not self.gcs_xfer:
+                raise Exception("gcs_xfer must be set")
+            elif not self.gcs_storage:
                 raise Exception("gcs_storage must be set")
-            elif not self.session:
-                raise Exception("s3_client must be set")
             elif not self.schema_service:
                 raise Exception("schema_service must be set")
             else:
-                return DcpStagingClient(self.session, self.gcs_storage, self.schema_service)
-
+                return DcpStagingClient(self.gcs_storage, self.gcs_xfer, self.schema_service)
