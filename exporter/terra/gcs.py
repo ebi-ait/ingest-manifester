@@ -6,7 +6,8 @@ import time
 
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
-from google.api_core.exceptions import PreconditionFailed
+from google.api_core.exceptions import PreconditionFailed, ServiceUnavailable
+from google.api_core import retry
 import json
 import logging
 from io import StringIO, BufferedReader
@@ -192,8 +193,7 @@ class GcsStorage:
 
             if not blob.exists():
                 blob.upload_from_file(data_stream, if_generation_match=0)
-                blob.metadata = {"export_completed": True}
-                blob.patch()
+                self.mark_complete(blob)
             else:
                 self.assert_file_uploaded(object_key)
         except PreconditionFailed as e:
@@ -208,9 +208,15 @@ class GcsStorage:
         source_blob: storage.Blob = staging_bucket.blob(source_key)
 
         new_blob = staging_bucket.rename_blob(source_blob, dest_key)
-        new_blob.metadata = {"export_completed": True}
-        new_blob.patch()
+        self.mark_complete(new_blob)
         return
+
+    def mark_complete(self, blob: storage.Blob):
+        blob.metadata = {"export_completed": True}
+        patch_retryer = retry.Retry(predicate=retry.if_exception_type(ServiceUnavailable),
+                                    deadline=60)
+
+        patch_retryer(lambda: blob.patch())
 
     def assert_file_uploaded(self, object_key: str):
         dest_key = f'{self.storage_prefix}/{object_key}'
