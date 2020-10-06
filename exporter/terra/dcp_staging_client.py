@@ -1,3 +1,4 @@
+from exporter import utils
 from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
@@ -21,6 +22,7 @@ class FileDescriptor:
     content_type: str
     size: int
     checksums: FileChecksums
+    schema_type: str
 
     def to_dict(self) -> Dict:
         return dict(
@@ -32,14 +34,16 @@ class FileDescriptor:
             sha1=self.checksums.sha1,
             sha256=self.checksums.sha256,
             crc32c=self.checksums.crc32c,
-            s3_etag=self.checksums.s3_etag
+            s3_etag=self.checksums.s3_etag,
+            schema_type='file_descriptor'
         )
 
     @staticmethod
     def from_file_metadata(file_metadata: MetadataResource) -> 'FileDescriptor':
         data_file = DataFile.from_file_metadata(file_metadata)
         name = f'{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
-        return FileDescriptor(data_file.uuid, file_metadata.dcp_version, name,
+        file_version = utils.to_dcp_version(file_metadata.dcp_version)
+        return FileDescriptor(data_file.uuid, file_version, name,
                               data_file.content_type, data_file.size, data_file.checksums)
 
 
