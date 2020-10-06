@@ -124,9 +124,9 @@ class FileChecksums:
     @staticmethod
     def from_dict(data: Dict) -> 'FileChecksums':
         try:
-            sha256 = data["sha256"]
-            crc32c = data["crc32c"]
-            sha1 = data["sha1"]
+            sha256 = data["sha256"].lower()
+            crc32c = data["crc32c"].lower()
+            sha1 = data["sha1"].lower()
             s3_etag = data["s3_etag"]
 
             return FileChecksums(sha256, crc32c, sha1, s3_etag)
