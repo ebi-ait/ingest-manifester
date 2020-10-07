@@ -22,7 +22,6 @@ class FileDescriptor:
     content_type: str
     size: int
     checksums: FileChecksums
-    schema_type: str
 
     def to_dict(self) -> Dict:
         return dict(
