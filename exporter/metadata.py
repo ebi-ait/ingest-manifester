@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 from ingest.api.ingestapi import IngestApi
 
+from exporter import utils
+
 
 class MetadataParseException(Exception):
     pass
@@ -33,7 +35,7 @@ class MetadataResource:
                  provenance: MetadataProvenance, full_resource: dict):
         self.metadata_json = metadata_json
         self.uuid = uuid
-        self.dcp_version = dcp_version
+        self.dcp_version = utils.to_dcp_version(dcp_version)
         self.metadata_type = metadata_type  # TODO: use an enum type instead of string
         self.provenance = provenance
         self.full_resource = full_resource

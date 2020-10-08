@@ -2,3 +2,4 @@
 venv/
 _local/
 src/
+__pycache__

@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from mock import Mock
 
+from exporter import utils
 from exporter.metadata import MetadataResource, MetadataService, MetadataParseException, DataFile, FileChecksums
 
 
@@ -53,7 +54,7 @@ class MetadataResourceTest(TestCase):
         self.assertIsNotNone(metadata)
         self.assertEqual('biomaterial', metadata.metadata_type)
         self.assertEqual(data['content'], metadata.metadata_json)
-        self.assertEqual(data['dcpVersion'], metadata.dcp_version)
+        self.assertEqual(utils.to_dcp_version(data['dcpVersion']), metadata.dcp_version)
 
         # and:
         self.assertEqual(uuid_value, metadata.uuid)
@@ -72,7 +73,7 @@ class MetadataResourceTest(TestCase):
                 'uuid': {'uuid': uuid_value},
                 'content': {'describedBy': "http://some-schema/1.2.3",
                             'some': {'content': ['we', 'are', 'agnostic', 'of']}},
-                'dcpVersion': '6.9.1',
+                'dcpVersion': '2019-12-02T13:40:50.520Z',
                 'submissionDate': 'a date',
                 'updateDate': 'another date'}
 
@@ -104,7 +105,7 @@ class MetadataServiceTest(TestCase):
         self.assertEqual('biomaterial', metadata_resource.metadata_type)
         self.assertEqual(uuid, metadata_resource.uuid)
         self.assertEqual(raw_metadata['content'], metadata_resource.metadata_json)
-        self.assertEqual(raw_metadata['dcpVersion'], metadata_resource.dcp_version)
+        self.assertEqual(utils.to_dcp_version(raw_metadata['dcpVersion']), metadata_resource.dcp_version)
         self.assertEqual(raw_metadata['submissionDate'], metadata_resource.provenance.submission_date)
         self.assertEqual(raw_metadata['updateDate'], metadata_resource.provenance.update_date)
 
