@@ -65,9 +65,9 @@ class DcpStagingClient:
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
         self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], export_job_id)
 
-    def write_metadatas(self, metadatas: Iterable[MetadataResource]):
+    def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:
-            self.write_metadata(metadata)
+            self.write_metadata(metadata, project_uuid)
 
     def write_metadata(self, metadata: MetadataResource, project_uuid: str):
         dest_object_key = f'{project_uuid}/metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
