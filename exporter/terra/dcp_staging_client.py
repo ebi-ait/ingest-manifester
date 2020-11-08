@@ -85,8 +85,8 @@ class DcpStagingClient:
         data_stream = DcpStagingClient.dict_to_json_stream(links_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
 
-    def write_file_descriptor(self, file_metadata: MetadataResource):
-        dest_object_key = f'descriptors/{file_metadata.concrete_type()}/{file_metadata.uuid}_{file_metadata.dcp_version}.json'
+    def write_file_descriptor(self, file_metadata: MetadataResource, project_uuid: str):
+        dest_object_key = f'{project_uuid}/descriptors/{file_metadata.concrete_type()}/{file_metadata.uuid}_{file_metadata.dcp_version}.json'
         file_descriptor_json = self.generate_file_desciptor_json(file_metadata)
         data_stream = DcpStagingClient.dict_to_json_stream(file_descriptor_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
