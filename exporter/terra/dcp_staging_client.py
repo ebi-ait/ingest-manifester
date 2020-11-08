@@ -69,8 +69,8 @@ class DcpStagingClient:
         for metadata in metadatas:
             self.write_metadata(metadata)
 
-    def write_metadata(self, metadata: MetadataResource):
-        dest_object_key = f'metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
+    def write_metadata(self, metadata: MetadataResource, project_uuid: str):
+        dest_object_key = f'{project_uuid}/metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
 
         metadata_json = metadata.get_content(with_provenance=True)
         data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
