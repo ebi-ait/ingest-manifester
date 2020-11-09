@@ -101,12 +101,12 @@ class DcpStagingClient:
 
         return file_descriptor_dict
 
-    def write_data_files(self, data_files: Iterable[DataFile]):
+    def write_data_files(self, data_files: Iterable[DataFile], project_uuid: str):
         for data_file in data_files:
-            self.write_data_file(data_file)
+            self.write_data_file(data_file, project_uuid)
 
-    def write_data_file(self, data_file: DataFile):
-        dest_object_key = DcpStagingClient.data_file_obj_key(data_file)
+    def write_data_file(self, data_file: DataFile, project_uuid: str):
+        dest_object_key = DcpStagingClient.data_file_obj_key(data_file, project_uuid)
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
@@ -130,8 +130,8 @@ class DcpStagingClient:
         return StringIO(json.dumps(d))
 
     @staticmethod
-    def data_file_obj_key(data_file: DataFile) -> str:
-        return f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
+    def data_file_obj_key(data_file: DataFile, project_uuid: str) -> str:
+        return f'{project_uuid}/data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
 
     @staticmethod
     def bucket_and_key_for_upload_area(upload_area: str) -> Tuple[str, str]:
