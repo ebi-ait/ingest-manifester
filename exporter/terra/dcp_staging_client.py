@@ -65,28 +65,28 @@ class DcpStagingClient:
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
         self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], export_job_id)
 
-    def write_metadatas(self, metadatas: Iterable[MetadataResource]):
+    def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:
-            self.write_metadata(metadata)
+            self.write_metadata(metadata, project_uuid)
 
-    def write_metadata(self, metadata: MetadataResource):
-        dest_object_key = f'metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
+    def write_metadata(self, metadata: MetadataResource, project_uuid: str):
+        dest_object_key = f'{project_uuid}/metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
 
         metadata_json = metadata.get_content(with_provenance=True)
         data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
 
         if metadata.metadata_type == "file":
-            self.write_file_descriptor(metadata)
+            self.write_file_descriptor(metadata, project_uuid)
 
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
-        dest_object_key = f'links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
+        dest_object_key = f'{project_uuid}/links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
         links_json = self.generate_links_json(link_set)
         data_stream = DcpStagingClient.dict_to_json_stream(links_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
 
-    def write_file_descriptor(self, file_metadata: MetadataResource):
-        dest_object_key = f'descriptors/{file_metadata.concrete_type()}/{file_metadata.uuid}_{file_metadata.dcp_version}.json'
+    def write_file_descriptor(self, file_metadata: MetadataResource, project_uuid: str):
+        dest_object_key = f'{project_uuid}/descriptors/{file_metadata.concrete_type()}/{file_metadata.uuid}_{file_metadata.dcp_version}.json'
         file_descriptor_json = self.generate_file_desciptor_json(file_metadata)
         data_stream = DcpStagingClient.dict_to_json_stream(file_descriptor_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
@@ -101,12 +101,12 @@ class DcpStagingClient:
 
         return file_descriptor_dict
 
-    def write_data_files(self, data_files: Iterable[DataFile]):
+    def write_data_files(self, data_files: Iterable[DataFile], project_uuid: str):
         for data_file in data_files:
-            self.write_data_file(data_file)
+            self.write_data_file(data_file, project_uuid)
 
-    def write_data_file(self, data_file: DataFile):
-        dest_object_key = DcpStagingClient.data_file_obj_key(data_file)
+    def write_data_file(self, data_file: DataFile, project_uuid: str):
+        dest_object_key = DcpStagingClient.data_file_obj_key(data_file, project_uuid)
         if self.gcs_storage.file_exists(dest_object_key):
             return
         else:
@@ -130,8 +130,8 @@ class DcpStagingClient:
         return StringIO(json.dumps(d))
 
     @staticmethod
-    def data_file_obj_key(data_file: DataFile) -> str:
-        return f'data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
+    def data_file_obj_key(data_file: DataFile, project_uuid: str) -> str:
+        return f'{project_uuid}/data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
 
     @staticmethod
     def bucket_and_key_for_upload_area(upload_area: str) -> Tuple[str, str]:
