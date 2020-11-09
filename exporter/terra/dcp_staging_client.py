@@ -77,7 +77,7 @@ class DcpStagingClient:
         self.write_to_staging_bucket(dest_object_key, data_stream)
 
         if metadata.metadata_type == "file":
-            self.write_file_descriptor(metadata)
+            self.write_file_descriptor(metadata, project_uuid)
 
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
         dest_object_key = f'{project_uuid}/links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
