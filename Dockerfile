@@ -1,5 +1,4 @@
-FROM python:3.7-alpine
-MAINTAINER Simon Jupp "jupp@ebi.ac.uk"
+FROM quay.io/ebi-ait/ingest-base-images:python_3.7-alpine
 
 RUN apk update && \
     apk add build-base && \
