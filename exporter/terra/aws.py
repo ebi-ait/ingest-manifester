@@ -24,7 +24,6 @@ class AwsStorage:
             'Bucket': source_bucket,
             'Key': source_key
         }
-
         self.client.copy(copy_source, dest_bucket, dest_key)
 
     def file_exists(self, bucket, key) -> bool:

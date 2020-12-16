@@ -1,7 +1,10 @@
+import boto3
+
 from exporter import utils
 from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
+from exporter.terra.aws import AwsStorage
 from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable
 from typing import Iterable, Dict, Tuple
 
@@ -55,7 +58,8 @@ class DcpStagingException(Exception):
 
 class DcpStagingClient:
 
-    def __init__(self, gcs_storage: GcsStorage, gcs_xfer: GcsXferStorage, schema_service: SchemaService):
+    def __init__(self, gcs_storage: GcsStorage, aws_storage, AwsStorage, gcs_xfer: GcsXferStorage,
+                 schema_service: SchemaService):
         self.gcs_storage = gcs_storage
         self.gcs_xfer = gcs_xfer
         self.schema_service = schema_service
@@ -156,13 +160,23 @@ class DcpStagingClient:
 
                 return self
 
-        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str):
+        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str,
+                          bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str):
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
                 credentials: Credentials = Credentials.from_service_account_info(info)
-                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials)
+                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name,
+                                               bucket_prefix, credentials)
 
                 return self
+
+        def with_aws_info(self, aws_access_key_id: str, aws_access_key_secret: str, bucket_name: str):
+            aws_session = boto3.Session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_access_key_secret,
+            )
+
+            self.aws_storage = AwsStorage(aws_session, bucket_name)
 
         def with_schema_service(self, schema_service: SchemaService) -> 'DcpStagingClient.Builder':
             self.schema_service = schema_service

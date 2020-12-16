@@ -84,6 +84,7 @@ def setup_terra_exporter() -> Thread:
     gcs_svc_credentials_path = os.environ['GCP_SVC_ACCOUNT_KEY_PATH']
     gcp_project = os.environ['GCP_PROJECT']
     terra_bucket_name = os.environ['TERRA_BUCKET_NAME']
+    ingest_terra_bucket_name = os.environ['INGEST_TERRA_BUCKET_NAME']
     terra_bucket_prefix = os.environ['TERRA_BUCKET_PREFIX']
 
     ingest_client = IngestApi(ingest_api_url)
@@ -95,6 +96,7 @@ def setup_terra_exporter() -> Thread:
                           .with_schema_service(schema_service)
                           .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
                           .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret)
+                          .with_aws_info(aws_access_key_id, aws_access_key_secret, ingest_terra_bucket_name)
                           .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)
