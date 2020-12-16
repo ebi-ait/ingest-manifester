@@ -9,3 +9,4 @@ cachetools
 -e git+https://github.com/HumanCellAtlas/ingest-client.git@74472037#egg=hca_ingest
 smart_open[all]
 google-api-python-client
+botocore
