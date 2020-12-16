@@ -95,12 +95,13 @@ class GcsXferStorage:
             else:
                 raise
 
-    def sync_to_terra(self, source_bucket: str, project_uuid: str, export_job_id: str):
+    def sync_to_terra(self, source_bucket: str, source_bucket_prefix: str, project_uuid: str, export_job_id: str):
+        source_key = f'{source_bucket_prefix}/{project_uuid}'
         transfer_job = TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                        description=f'Transfer job for ingest terra staging area {project_uuid} and export-job-id {export_job_id}',
                                        project_id=self.gcp_project_id,
                                        source_bucket=source_bucket,
-                                       source_key=project_uuid,
+                                       source_key=source_key,
                                        dest_bucket=self.gcs_dest_bucket,
                                        aws_access_key_id=self.aws_access_key_id,
                                        aws_access_key_secret=self.aws_access_key_secret)

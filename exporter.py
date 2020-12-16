@@ -96,7 +96,7 @@ def setup_terra_exporter() -> Thread:
                           .with_schema_service(schema_service)
                           .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
                           .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret)
-                          .with_aws_info(aws_access_key_id, aws_access_key_secret, ingest_terra_bucket_name)
+                          .with_aws_info(aws_access_key_id, aws_access_key_secret, ingest_terra_bucket_name, terra_bucket_prefix)
                           .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)

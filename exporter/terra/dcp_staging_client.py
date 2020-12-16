@@ -66,7 +66,7 @@ class DcpStagingClient:
         self.schema_service = schema_service
 
     def sync_to_terra(self, project_uuid: str, export_job_id: str):
-        self.gcs_xfer.sync_to_terra(self.aws_storage.bucket_name, project_uuid, export_job_id)
+        self.gcs_xfer.sync_to_terra(self.aws_storage.bucket_name, self.aws_storage.storage_prefix, project_uuid, export_job_id)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:
@@ -144,6 +144,7 @@ class DcpStagingClient:
         def __init__(self):
             self.schema_service = None
             self.gcs_storage = None
+            self.aws_storage = None
             self.gcs_xfer = None
 
         def with_gcs_info(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str,
@@ -166,13 +167,14 @@ class DcpStagingClient:
 
                 return self
 
-        def with_aws_info(self, aws_access_key_id: str, aws_access_key_secret: str, bucket_name: str):
+        def with_aws_info(self, aws_access_key_id: str, aws_access_key_secret: str, bucket_name: str,
+                          bucket_prefix: str):
             aws_session = boto3.Session(
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_access_key_secret,
             )
-
-            self.aws_storage = AwsStorage(aws_session, bucket_name)
+            self.aws_storage = AwsStorage(aws_session, bucket_name, bucket_prefix)
+            return self
 
         def with_schema_service(self, schema_service: SchemaService) -> 'DcpStagingClient.Builder':
             self.schema_service = schema_service
@@ -186,4 +188,4 @@ class DcpStagingClient:
             elif not self.schema_service:
                 raise Exception("schema_service must be set")
             else:
-                return DcpStagingClient(self.gcs_storage, self.gcs_xfer, self.schema_service)
+                return DcpStagingClient(self.gcs_storage, self.aws_storage, self.gcs_xfer, self.schema_service)
