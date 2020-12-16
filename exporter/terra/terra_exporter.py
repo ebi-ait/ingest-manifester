@@ -27,6 +27,7 @@ class TerraExporter:
         self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
         self.dcp_staging_client.write_data_files(experiment_data_files, project.uuid)
 
+        # FIXME should only get triggered once per submission / project and not per assay
         self.dcp_staging_client.sync_to_terra(project.uuid, export_job_id)
 
     def export_update(self, metadata_urls: Iterable[str]):
