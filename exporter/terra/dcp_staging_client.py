@@ -77,8 +77,7 @@ class DcpStagingClient:
         dest_object_key = f'{project_uuid}/metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
 
         metadata_json = metadata.get_content(with_provenance=True)
-        data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
-        self.write_to_staging_bucket(dest_object_key, data_stream)
+        self.write_json(dest_object_key, metadata_json)
 
         if metadata.metadata_type == "file":
             self.write_file_descriptor(metadata, project_uuid)
@@ -86,14 +85,12 @@ class DcpStagingClient:
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
         dest_object_key = f'{project_uuid}/links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
         links_json = self.generate_links_json(link_set)
-        data_stream = DcpStagingClient.dict_to_json_stream(links_json)
-        self.write_to_staging_bucket(dest_object_key, data_stream)
+        self.write_json(dest_object_key, links_json)
 
     def write_file_descriptor(self, file_metadata: MetadataResource, project_uuid: str):
         dest_object_key = f'{project_uuid}/descriptors/{file_metadata.concrete_type()}/{file_metadata.uuid}_{file_metadata.dcp_version}.json'
         file_descriptor_json = self.generate_file_desciptor_json(file_metadata)
-        data_stream = DcpStagingClient.dict_to_json_stream(file_descriptor_json)
-        self.write_to_staging_bucket(dest_object_key, data_stream)
+        self.write_json(dest_object_key, file_descriptor_json)
 
     def generate_file_desciptor_json(self, file_metadata) -> Dict:
         latest_file_descriptor_schema = self.schema_service.cached_latest_file_descriptor_schema()
@@ -116,7 +113,8 @@ class DcpStagingClient:
         else:
             self.gcs_storage.move_file(data_file.source_key(), dest_object_key)
 
-    def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
+    def write_json(self, object_key: str, metadata_json: dict):
+        data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
         self.gcs_storage.write(object_key, data_stream)
 
     def generate_links_json(self, link_set: LinkSet) -> Dict:
