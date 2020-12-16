@@ -67,10 +67,10 @@ class TransferJobSpec:
 
 class GcsXferStorage:
 
-    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials):
+    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, gcp_project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials):
         self.aws_access_key_id = aws_access_key_id
         self.aws_access_key_secret = aws_access_key_secret
-        self.project_id = project_id
+        self.gcp_project_id = gcp_project_id
         self.gcs_dest_bucket = gcs_dest_bucket
         self.gcs_bucket_prefix = gcs_dest_prefix
         self.credentials = credentials
@@ -95,10 +95,33 @@ class GcsXferStorage:
             else:
                 raise
 
+    def sync_to_terra(self, source_bucket: str, project_uuid: str, export_job_id: str):
+        transfer_job = TransferJobSpec(name=f'transferJobs/{export_job_id}',
+                                       description=f'Transfer job for ingest terra staging area {project_uuid} and export-job-id {export_job_id}',
+                                       project_id=self.gcp_project_id,
+                                       source_bucket=source_bucket,
+                                       source_key=project_uuid,
+                                       dest_bucket=self.gcs_dest_bucket,
+                                       aws_access_key_id=self.aws_access_key_id,
+                                       aws_access_key_secret=self.aws_access_key_secret)
+
+        try:
+            maybe_existing_job = self.get_job(transfer_job.name)
+            if maybe_existing_job is not None:
+                self.assert_job_complete(transfer_job.name)
+            else:
+                self.client.transferJobs().create(body=transfer_job.to_dict()).execute()
+                self.assert_job_complete(transfer_job.name)
+        except HttpError as e:
+            if e.resp.status == 409:
+                self.assert_job_complete(transfer_job.name)
+            else:
+                raise
+
     def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str) -> TransferJobSpec:
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
-                               project_id=self.project_id,
+                               project_id=self.gcp_project_id,
                                source_bucket=source_bucket,
                                source_key=upload_area_key,
                                dest_bucket=self.gcs_dest_bucket,
@@ -116,7 +139,7 @@ class GcsXferStorage:
         else:
             try:
                 maybe_existing_job = self.client.transferJobs().get(jobName=job_name,
-                                                                    projectId=self.project_id).execute()
+                                                                    projectId=self.gcp_project_id).execute()
                 return maybe_existing_job
             except HttpError as e:
                 if e.resp.status == 404:
@@ -140,7 +163,7 @@ class GcsXferStorage:
         else:
             request = self.client.transferOperations().list(name="transferOperations",
                                                             filter=json.dumps({
-                                                                "project_id": self.project_id,
+                                                                "project_id": self.gcp_project_id,
                                                                 "job_names": [job_name]
                                                             }))
             response: Dict = request.execute()

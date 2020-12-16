@@ -58,16 +58,15 @@ class DcpStagingException(Exception):
 
 class DcpStagingClient:
 
-    def __init__(self, gcs_storage: GcsStorage, aws_storage, AwsStorage, gcs_xfer: GcsXferStorage,
+    def __init__(self, gcs_storage: GcsStorage, aws_storage: AwsStorage, gcs_xfer: GcsXferStorage,
                  schema_service: SchemaService):
         self.gcs_storage = gcs_storage
+        self.aws_storage = aws_storage
         self.gcs_xfer = gcs_xfer
         self.schema_service = schema_service
 
-    def transfer_data_files(self, submission: Dict, export_job_id: str):
-        upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
-        bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
-        self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], export_job_id)
+    def sync_to_terra(self, project_uuid: str, export_job_id: str):
+        self.gcs_xfer.sync_to_terra(self.aws_storage.bucket_name, project_uuid, export_job_id)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:
@@ -108,14 +107,13 @@ class DcpStagingClient:
 
     def write_data_file(self, data_file: DataFile, project_uuid: str):
         dest_object_key = DcpStagingClient.data_file_obj_key(data_file, project_uuid)
-        if self.gcs_storage.file_exists(dest_object_key):
+        if self.aws_storage.file_exists(dest_object_key):
             return
         else:
-            self.gcs_storage.move_file(data_file.source_key(), dest_object_key)
+            self.aws_storage.copy_file(data_file.source_bucket(), data_file.source_key(), dest_object_key)
 
-    def write_json(self, object_key: str, metadata_json: dict):
-        data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
-        self.gcs_storage.write(object_key, data_stream)
+    def write_json(self, object_key: str, data: dict):
+        self.aws_storage.write_json(object_key, data)
 
     def generate_links_json(self, link_set: LinkSet) -> Dict:
         latest_links_schema = self.schema_service.cached_latest_links_schema()
