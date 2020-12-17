@@ -101,9 +101,9 @@ class _TerraListener(ConsumerProducerMixin):
         try:
             exp = ExperimentMessage.from_dict(json.loads(body))
             self.logger.info(f'Received experiment message for process {exp.process_uuid} (index {exp.experiment_index} for submission {exp.submission_uuid})')
-            self.terra_exporter.export(exp.process_uuid, exp.submission_uuid, exp.experiment_uuid, exp.experiment_version, exp.job_id)
+            self.terra_exporter.export(exp.process_uuid, exp.experiment_uuid, exp.experiment_version)
             self.logger.info(f'Exported experiment for process uuid {exp.process_uuid} (--index {exp.experiment_index} --total {exp.total} --submission {exp.submission_uuid})')
-            self.log_complete_assay(exp.job_id, exp.process_id)
+            self.log_complete_assay(exp)
 
             self.producer.publish(json.loads(body),
                 exchange=self.publish_queue_config.exchange,
@@ -129,8 +129,13 @@ class _TerraListener(ConsumerProducerMixin):
 
         msg.ack()
 
-    def log_complete_assay(self, job_id: str, assay_process_id: str):
-        self.job_service.complete_assay(job_id, assay_process_id)
+    def log_complete_assay(self, exp):
+        self.job_service.complete_assay(exp.job_id, exp.process_id)
+
+        if self.job_service.maybe_complete_job(exp.job_id):
+            self.logger.info(f'Syncing to Terra')
+            self.terra_exporter.sync_to_terra(exp.process_uuid, exp.job_id)
+            self.logger.info(f'Syncing complete')
 
     @staticmethod
     def queue_from_config(queue_config: QueueConfig) -> Queue:

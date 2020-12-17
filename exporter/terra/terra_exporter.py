@@ -16,9 +16,10 @@ class TerraExporter:
         self.graph_crawler = graph_crawler
         self.dcp_staging_client = dcp_staging_client
 
-    def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version, export_job_id):
+    def export(self, process_uuid, experiment_uuid, experiment_version):
         process = self.get_process(process_uuid)
         project = self.project_for_process(process)
+        self.project = project
 
         experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
         experiment_data_files = [DataFile.from_file_metadata(m) for m in experiment_graph.nodes.get_nodes() if m.metadata_type == "file"]
@@ -27,7 +28,12 @@ class TerraExporter:
         self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
         self.dcp_staging_client.write_data_files(experiment_data_files, project.uuid)
 
-        # FIXME should only get triggered once per submission / project and not per assay
+    def sync_to_terra(self, process_uuid: str, export_job_id: str):
+        # TODO Duplicating getting of process and project
+        process = self.get_process(process_uuid)
+        project = self.project_for_process(process)
+
+        # TODO Improve tracking of export job (setting export job status currently have timing issue)
         self.dcp_staging_client.sync_to_terra(project.uuid, export_job_id)
 
     def export_update(self, metadata_urls: Iterable[str]):

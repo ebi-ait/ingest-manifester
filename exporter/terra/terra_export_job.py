@@ -66,12 +66,13 @@ class TerraExportJobService:
         create_export_entity_url = self.get_export_entities_url(job_id)
         requests.post(create_export_entity_url, json.dumps(assay_export_entity.to_dict()),
                       headers={"Content-type": "application/json"}, json=True).raise_for_status()
-        self._maybe_complete_job(job_id)
 
-    def _maybe_complete_job(self, job_id):
+    def maybe_complete_job(self, job_id):
         export_job = self.get_job(job_id)
         if export_job.num_expected_assays == self.get_num_complete_entities_for_job(job_id):
             self.complete_job(job_id)
+            return True
+        return False
 
     def complete_job(self, job_id: str):
         job_url = self.get_job_url(job_id)
