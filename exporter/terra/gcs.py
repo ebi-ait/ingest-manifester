@@ -60,6 +60,9 @@ class TransferJobSpec:
                 },
                 'objectConditions': {
                     'includePrefixes': [self.source_key]
+                },
+                'transferOptions' : {
+                    'overwriteObjectsAlreadyExistingInSink': False
                 }
             }
         }
