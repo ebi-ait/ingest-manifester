@@ -1,3 +1,4 @@
+from sys import implementation
 import googleapiclient.discovery
 from typing import IO, Dict, Any, Union, Optional
 from exporter.metadata import DataFile
@@ -23,10 +24,11 @@ class TransferJobSpec:
     description: str
     project_id: str
     source_bucket: str
-    source_key: str
+    upload_area: str
     dest_bucket: str
     aws_access_key_id: str
     aws_access_key_secret: str
+    gcs_notif_topic: str
 
     def to_dict(self) -> Dict:
         start_date = datetime.now()
@@ -53,27 +55,35 @@ class TransferJobSpec:
                     'awsAccessKey': {
                         'accessKeyId': self.aws_access_key_id,
                         'secretAccessKey': self.aws_access_key_secret
-                    }
+                    },
+                    'path': self.upload_area + '/'
                 },
                 'gcsDataSink': {
-                    'bucketName': self.dest_bucket
+                    'bucketName': self.dest_bucket,
+                    'path': self.upload_area + '/data/'
                 },
-                'objectConditions': {
-                    'includePrefixes': [self.source_key]
+                'transferOptions': {
+                    'overwriteObjectsAlreadyExistingInSink': False
                 }
-            }
+            }#,
+            #'notificationConfig': {
+            #    'pubsubTopic': self.gcs_notif_topic,
+            #    'eventTypes': ['TRANSFER_OPERATION_SUCCESS', 'TRANSFER_OPERATION_FAILED', 'TRANSFER_OPERATION_ABORTED'],
+            #    'payloadFormat': 'JSON'
+            #}
         }
 
 
 class GcsXferStorage:
 
-    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials):
+    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials, gcs_notif_topic: str):
         self.aws_access_key_id = aws_access_key_id
         self.aws_access_key_secret = aws_access_key_secret
         self.project_id = project_id
         self.gcs_dest_bucket = gcs_dest_bucket
         self.gcs_bucket_prefix = gcs_dest_prefix
         self.credentials = credentials
+        self.gcs_notif_topic = gcs_notif_topic
 
         self.client = self.create_transfer_client()
         self.logger = logging.getLogger(__name__)
@@ -100,10 +110,11 @@ class GcsXferStorage:
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
                                project_id=self.project_id,
                                source_bucket=source_bucket,
-                               source_key=upload_area_key,
+                               upload_area=upload_area_key,
                                dest_bucket=self.gcs_dest_bucket,
                                aws_access_key_id=self.aws_access_key_id,
-                               aws_access_key_secret=self.aws_access_key_secret)
+                               aws_access_key_secret=self.aws_access_key_secret,
+                               gcs_notif_topic = self.gcs_notif_topic)
 
     def get_job(self, job_name: str) -> Optional[Dict]:
         two_seconds = 2
