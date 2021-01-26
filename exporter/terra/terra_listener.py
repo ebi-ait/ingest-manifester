@@ -149,7 +149,7 @@ class _TerraListener(ConsumerProducerMixin):
         try:
             sub = DataExportMessage.from_dict(json.loads(body))
             self.logger.info(f'Received data submission message for submission {sub.submission_uuid})')
-            self.terra_exporter.export_data(sub.submission_uuid)
+            self.terra_exporter.export_data(sub.submission_uuid, sub.job_id)
             self.logger.info(f'Data submission started --submission {sub.submission_uuid})')
             
             msg.ack()
