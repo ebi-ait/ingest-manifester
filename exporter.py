@@ -36,11 +36,15 @@ UPDATE_QUEUE_TERRA = 'ingest.terra.updates.new'
 
 ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
 EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
+DATA_ROUTING_KEY = 'ingest.assay.data.submitted'
+
 UPDATE_ROUTING_KEY = 'ingest.update.experiment.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
 
 ASSAY_COMPLETED_ROUTING_KEY = 'ingest.assay.manifest.completed'
 EXPERIMENT_COMPLETED_ROUTING_KEY = 'ingest.assay.experiment.exported'
+
+GCS_TRANSFER_SVC_NOTIFICATION_TOPIC = 'ingest/terra/exportJobs'
 
 
 RETRY_POLICY = {
@@ -92,6 +96,7 @@ def setup_terra_exporter() -> Thread:
     graph_crawler = GraphCrawler(metadata_service)
     dcp_staging_client = (DcpStagingClient
                           .Builder()
+                          .with_ingest_client(ingest_client)
                           .with_schema_service(schema_service)
                           .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
                           .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret)
@@ -104,10 +109,11 @@ def setup_terra_exporter() -> Thread:
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
     amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
     experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, EXPERIMENT_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
+    data_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, DATA_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
     update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
     publish_queue_config = QueueConfig(None, EXPERIMENT_COMPLETED_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
 
-    terra_listener = TerraListener(amqp_conn_config, terra_exporter, terra_job_service, experiment_queue_config, update_queue_config, publish_queue_config)
+    terra_listener = TerraListener(amqp_conn_config, terra_exporter, terra_job_service, experiment_queue_config, data_queue_config, update_queue_config, publish_queue_config)
 
     terra_exporter_listener_process = Thread(target=lambda: terra_listener.run())
     terra_exporter_listener_process.start()
