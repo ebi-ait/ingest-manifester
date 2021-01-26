@@ -17,7 +17,7 @@ import json
 class ExperimentMessageParseExpection(Exception):
     pass
 
-class SubmissionMessageParseExpection(Exception):
+class DataExportMessageParseExpection(Exception):
     pass
 
 class SimpleUpdateMessageParseExpection(Exception):
@@ -51,15 +51,17 @@ class ExperimentMessage:
 
 
 @dataclass
-class SubmissionMessage:
+class DataExportMessage:
     submission_uuid: str
+    job_id: str
 
     @staticmethod
-    def from_dict(data: Dict) -> 'SubmissionMessage':
+    def from_dict(data: Dict) -> 'DataExportMessage':
         try:
-            return SubmissionMessage(data["documentUuid"])
+            return DataExportMessage(data["documentUuid"],
+                                     data["exportJobId"])
         except (KeyError, TypeError) as e:
-            raise SubmissionMessageParseExpection(e)
+            raise DataExportMessageParseExpection(e)
 
 
 @dataclass
@@ -145,7 +147,7 @@ class _TerraListener(ConsumerProducerMixin):
 
     def _data_message_handler(self, body: str, msg: Message):
         try:
-            sub = SubmissionMessage.from_dict(json.loads(body))
+            sub = DataExportMessage.from_dict(json.loads(body))
             self.logger.info(f'Received data submission message for submission {sub.submission_uuid})')
             self.terra_exporter.export_data(sub.submission_uuid)
             self.logger.info(f'Data submission started --submission {sub.submission_uuid})')
