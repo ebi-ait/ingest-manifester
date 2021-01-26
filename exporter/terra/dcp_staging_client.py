@@ -1,3 +1,4 @@
+from ingest.api.ingestapi import IngestApi
 from exporter import utils
 from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
@@ -44,8 +45,7 @@ class FileDescriptor:
     @staticmethod
     def from_file_metadata(file_metadata: MetadataResource) -> 'FileDescriptor':
         data_file = DataFile.from_file_metadata(file_metadata)
-        name = f'{data_file.uuid}_{file_metadata.dcp_version}_{data_file.file_name}'
-        return FileDescriptor(data_file.uuid, file_metadata.dcp_version, name,
+        return FileDescriptor(data_file.uuid, file_metadata.dcp_version, data_file.file_name,
                               data_file.content_type, data_file.size, data_file.checksums)
 
 
@@ -55,10 +55,11 @@ class DcpStagingException(Exception):
 
 class DcpStagingClient:
 
-    def __init__(self, gcs_storage: GcsStorage, gcs_xfer: GcsXferStorage, schema_service: SchemaService):
+    def __init__(self, gcs_storage: GcsStorage, gcs_xfer: GcsXferStorage, schema_service: SchemaService, ingest_client: IngestApi):
         self.gcs_storage = gcs_storage
         self.gcs_xfer = gcs_xfer
         self.schema_service = schema_service
+        self.ingest_client = ingest_client
 
     def transfer_data_files(self, submission: Dict, export_job_id: str):
         upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
@@ -70,6 +71,7 @@ class DcpStagingClient:
             self.write_metadata(metadata, project_uuid)
 
     def write_metadata(self, metadata: MetadataResource, project_uuid: str):
+
         dest_object_key = f'{project_uuid}/metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
 
         metadata_json = metadata.get_content(with_provenance=True)
@@ -101,17 +103,6 @@ class DcpStagingClient:
 
         return file_descriptor_dict
 
-    def write_data_files(self, data_files: Iterable[DataFile], project_uuid: str):
-        for data_file in data_files:
-            self.write_data_file(data_file, project_uuid)
-
-    def write_data_file(self, data_file: DataFile, project_uuid: str):
-        dest_object_key = DcpStagingClient.data_file_obj_key(data_file, project_uuid)
-        if self.gcs_storage.file_exists(dest_object_key):
-            return
-        else:
-            self.gcs_storage.move_file(data_file.source_key(), dest_object_key)
-
     def write_to_staging_bucket(self, object_key: str, data_stream: Streamable):
         self.gcs_storage.write(object_key, data_stream)
 
@@ -128,10 +119,6 @@ class DcpStagingClient:
     @staticmethod
     def dict_to_json_stream(d: Dict) -> StringIO:
         return StringIO(json.dumps(d))
-
-    @staticmethod
-    def data_file_obj_key(data_file: DataFile, project_uuid: str) -> str:
-        return f'{project_uuid}/data/{data_file.uuid}_{data_file.dcp_version}_{data_file.file_name}'
 
     @staticmethod
     def bucket_and_key_for_upload_area(upload_area: str) -> Tuple[str, str]:
@@ -156,13 +143,17 @@ class DcpStagingClient:
 
                 return self
 
-        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str):
+        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str, gcs_notif_topic: str):
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
                 credentials: Credentials = Credentials.from_service_account_info(info)
-                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials)
+                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials, gcs_notif_topic)
 
                 return self
+
+        def with_ingest_client(self, ingest_client: IngestApi) -> 'DcpStagingClient.Builder':
+            self.ingest_client = ingest_client
+            return self
 
         def with_schema_service(self, schema_service: SchemaService) -> 'DcpStagingClient.Builder':
             self.schema_service = schema_service
@@ -175,5 +166,7 @@ class DcpStagingClient:
                 raise Exception("gcs_storage must be set")
             elif not self.schema_service:
                 raise Exception("schema_service must be set")
+            elif not self.ingest_client:
+                raise Exception("ingest_client must be set")
             else:
-                return DcpStagingClient(self.gcs_storage, self.gcs_xfer, self.schema_service)
+                return DcpStagingClient(self.gcs_storage, self.gcs_xfer, self.schema_service, self.ingest_client)
