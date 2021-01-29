@@ -53,12 +53,14 @@ class ExperimentMessage:
 @dataclass
 class DataExportMessage:
     submission_uuid: str
+    project_uuid: str
     job_id: str
 
     @staticmethod
     def from_dict(data: Dict) -> 'DataExportMessage':
         try:
-            return DataExportMessage(data["documentUuid"],
+            return DataExportMessage(data["submissionUuid"],
+                                     data["projectUuid"],
                                      data["exportJobId"])
         except (KeyError, TypeError) as e:
             raise DataExportMessageParseExpection(e)
@@ -110,15 +112,16 @@ class _TerraListener(ConsumerProducerMixin):
                                         callbacks=[self.experiment_message_handler],
                                         prefetch_count=1)
 
-        data_consumer = _consumer([_TerraListener.queue_from_config(self.data_queue_config)],
-                                        callbacks=[self.data_message_handler],
-                                        prefetch_count=1)
+        #data_consumer = _consumer([_TerraListener.queue_from_config(self.data_queue_config)],
+        #                                callbacks=[self.data_message_handler],
+        #                                prefetch_count=1)
 
         update_consumer = _consumer([_TerraListener.queue_from_config(self.update_queue_config)],
                                     callbacks=[self.update_message_handler],
                                     prefetch_count=1)
 
-        return [experiment_consumer, data_consumer, update_consumer]
+        #return [experiment_consumer, data_consumer, update_consumer]
+        return [experiment_consumer, update_consumer]
 
     def experiment_message_handler(self, body: str, msg: Message):
         return self.executor.submit(lambda: self._experiment_message_handler(body, msg))

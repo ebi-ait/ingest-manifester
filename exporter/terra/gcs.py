@@ -24,11 +24,12 @@ class TransferJobSpec:
     description: str
     project_id: str
     source_bucket: str
-    upload_area: str
-    dest_bucket: str
+    source_path: str
     aws_access_key_id: str
     aws_access_key_secret: str
-    gcs_notif_topic: str
+    dest_bucket: str
+    dest_path: str
+    gcs_notification_topic: str
 
     def to_dict(self) -> Dict:
         start_date = datetime.now()
@@ -56,19 +57,18 @@ class TransferJobSpec:
                         'accessKeyId': self.aws_access_key_id,
                         'secretAccessKey': self.aws_access_key_secret
                     },
-                    'path': self.upload_area + '/'
+                    'path': self.source_path + '/'
                 },
                 'gcsDataSink': {
                     'bucketName': self.dest_bucket,
-                    'path': self.upload_area + '/data/'
+                    'path': self.dest_path + '/'
                 },
                 'transferOptions': {
                     'overwriteObjectsAlreadyExistingInSink': False
                 }
             }#,
             #'notificationConfig': {
-            #    'pubsubTopic': self.gcs_notif_topic,
-            #    'eventTypes': ['TRANSFER_OPERATION_SUCCESS', 'TRANSFER_OPERATION_FAILED', 'TRANSFER_OPERATION_ABORTED'],
+            #    'pubsubTopic': self.gcs_notification_topic,
             #    'payloadFormat': 'JSON'
             #}
         }
@@ -76,21 +76,22 @@ class TransferJobSpec:
 
 class GcsXferStorage:
 
-    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials, gcs_notif_topic: str):
+    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials, gcs_notification_topic: str):
         self.aws_access_key_id = aws_access_key_id
         self.aws_access_key_secret = aws_access_key_secret
         self.project_id = project_id
         self.gcs_dest_bucket = gcs_dest_bucket
         self.gcs_bucket_prefix = gcs_dest_prefix
         self.credentials = credentials
-        self.gcs_notif_topic = gcs_notif_topic
+        self.gcs_notification_topic = gcs_notification_topic
 
         self.client = self.create_transfer_client()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
-    def transfer_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str):
-        transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, export_job_id)
+    def transfer_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str):
+        dest_path = f'{self.gcs_bucket_prefix}/{project_uuid}/data/'
+        transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, dest_path, export_job_id)
 
         try:
             maybe_existing_job = self.get_job(transfer_job.name)
@@ -105,16 +106,17 @@ class GcsXferStorage:
             else:
                 raise
 
-    def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, export_job_id: str) -> TransferJobSpec:
+    def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, dest_path: str, export_job_id: str) -> TransferJobSpec:
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
                                project_id=self.project_id,
                                source_bucket=source_bucket,
-                               upload_area=upload_area_key,
-                               dest_bucket=self.gcs_dest_bucket,
+                               source_path=upload_area_key,
                                aws_access_key_id=self.aws_access_key_id,
                                aws_access_key_secret=self.aws_access_key_secret,
-                               gcs_notif_topic = self.gcs_notif_topic)
+                               dest_bucket=self.gcs_dest_bucket,
+                               dest_path=dest_path,
+                               gcs_notification_topic=self.gcs_notification_topic)
 
     def get_job(self, job_name: str) -> Optional[Dict]:
         two_seconds = 2
