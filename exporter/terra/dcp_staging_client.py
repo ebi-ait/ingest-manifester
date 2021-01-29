@@ -72,11 +72,17 @@ class DcpStagingClient:
 
     def write_metadata(self, metadata: MetadataResource, project_uuid: str):
 
+        # TODO1: only proceed if lastContentModified > last
+
         dest_object_key = f'{project_uuid}/metadata/{metadata.concrete_type()}/{metadata.uuid}_{metadata.dcp_version}.json'
 
         metadata_json = metadata.get_content(with_provenance=True)
         data_stream = DcpStagingClient.dict_to_json_stream(metadata_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)
+
+        # TODO2: patch dcpVersion        
+        #patch_url = metadata.metadata_json['_links']['self']['href']
+        #self.ingest_client.patch(patch_url, {"dcpVersion": metadata.dcp_version})
 
         if metadata.metadata_type == "file":
             self.write_file_descriptor(metadata, project_uuid)
@@ -143,11 +149,11 @@ class DcpStagingClient:
 
                 return self
 
-        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str, gcs_notif_topic: str):
+        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str, gcs_notification_topic: str):
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
                 credentials: Credentials = Credentials.from_service_account_info(info)
-                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials, gcs_notif_topic)
+                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials, gcs_notification_topic)
 
                 return self
 
