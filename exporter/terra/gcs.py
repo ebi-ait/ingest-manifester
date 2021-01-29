@@ -57,11 +57,11 @@ class TransferJobSpec:
                         'accessKeyId': self.aws_access_key_id,
                         'secretAccessKey': self.aws_access_key_secret
                     },
-                    'path': self.source_path + '/'
+                    'path': self.source_path
                 },
                 'gcsDataSink': {
                     'bucketName': self.dest_bucket,
-                    'path': self.dest_path + '/'
+                    'path': self.dest_path
                 },
                 'transferOptions': {
                     'overwriteObjectsAlreadyExistingInSink': False
@@ -90,8 +90,7 @@ class GcsXferStorage:
         self.logger.setLevel(logging.INFO)
 
     def transfer_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str):
-        dest_path = f'{self.gcs_bucket_prefix}/{project_uuid}/data/'
-        transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, dest_path, export_job_id)
+        transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, project_uuid, export_job_id)
 
         try:
             maybe_existing_job = self.get_job(transfer_job.name)
@@ -106,16 +105,16 @@ class GcsXferStorage:
             else:
                 raise
 
-    def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, dest_path: str, export_job_id: str) -> TransferJobSpec:
+    def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str) -> TransferJobSpec:
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
                                project_id=self.project_id,
                                source_bucket=source_bucket,
-                               source_path=upload_area_key,
+                               source_path=f'{upload_area_key}/',
                                aws_access_key_id=self.aws_access_key_id,
                                aws_access_key_secret=self.aws_access_key_secret,
                                dest_bucket=self.gcs_dest_bucket,
-                               dest_path=dest_path,
+                               dest_path=f'{self.gcs_bucket_prefix}/{project_uuid}/data/',
                                gcs_notification_topic=self.gcs_notification_topic)
 
     def get_job(self, job_name: str) -> Optional[Dict]:
