@@ -69,6 +69,7 @@ class TransferJobSpec:
             },
             'notificationConfig': {
                 'pubsubTopic': self.gcs_notification_topic,
+                'eventTypes': ['TRANSFER_OPERATION_SUCCESS'],
                 'payloadFormat': 'JSON'
             }
         }
