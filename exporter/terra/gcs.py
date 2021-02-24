@@ -66,11 +66,11 @@ class TransferJobSpec:
                 'transferOptions': {
                     'overwriteObjectsAlreadyExistingInSink': False
                 }
-            }#,
-            #'notificationConfig': {
-            #    'pubsubTopic': self.gcs_notification_topic,
-            #    'payloadFormat': 'JSON'
-            #}
+            },
+            'notificationConfig': {
+                'pubsubTopic': self.gcs_notification_topic,
+                'payloadFormat': 'JSON'
+            }
         }
 
 
