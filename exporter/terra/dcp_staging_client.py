@@ -61,6 +61,11 @@ class DcpStagingClient:
         self.schema_service = schema_service
         self.ingest_client = ingest_client
 
+    def transfer_submission(self, submission: Dict, metadatas: Iterable[MetadataResource], project_uuid, export_job_id: str):
+        self.transfer_data_files(submission, project_uuid, export_job_id)
+        callback = lambda: self.write_metadatas(metadatas, project_uuid, export_job_id)
+        self.gcs_xfer.subscribe_job_complete(export_job_id, callback)
+
     def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str):
         upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
@@ -146,15 +151,13 @@ class DcpStagingClient:
                 storage_credentials: Credentials = Credentials.from_service_account_info(info)
                 gcs_client = storage.Client(project=gcp_project, credentials=storage_credentials)
                 self.gcs_storage = GcsStorage(gcs_client, bucket_name, bucket_prefix)
-
                 return self
 
-        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str, gcs_notification_topic: str):
+        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str, gcs_notification_topic: str, gcs_notification_sub: str):
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
                 credentials: Credentials = Credentials.from_service_account_info(info)
-                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials, gcs_notification_topic)
-
+                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials, gcs_notification_topic, gcs_notification_sub)
                 return self
 
         def with_ingest_client(self, ingest_client: IngestApi) -> 'DcpStagingClient.Builder':
