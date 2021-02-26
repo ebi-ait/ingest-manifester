@@ -140,12 +140,15 @@ class GcsXferStorage:
                 else:
                     raise
 
-    def subscribe_job_complete(self, job_name: str, callback):
+    def subscribe_job_complete(self, export_job_id: str, callback):
         subscription_path = self.gcs_subscriber.subscription_path(self.project_id, self.gcs_notification_sub)
 
         def cb(msg):
+            print(f"Received message {msg}")
             if msg.attributes:
-                if msg.attributes.transferJobName == job_name:
+                print(f"With job name {msg.attributes.transferJobName}")
+
+                if msg.attributes.eventType == "TRANSFER_OPERATION_SUCCESS" and msg.attributes.transferJobName == f"transferJobs/{export_job_id}":
                     callback()
             msg.ack()
         
