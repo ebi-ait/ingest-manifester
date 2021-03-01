@@ -13,6 +13,7 @@ from google.oauth2.service_account import Credentials
 import json
 
 from dataclasses import dataclass
+from functools import partial 
 
 
 @dataclass
@@ -63,7 +64,7 @@ class DcpStagingClient:
 
     def transfer_submission(self, submission: Dict, metadatas: Iterable[MetadataResource], project_uuid, export_job_id: str):
         self.transfer_data_files(submission, project_uuid, export_job_id)
-        callback = lambda: self.write_metadatas(metadatas, project_uuid, export_job_id)
+        callback = partial(self.write_metadatas, metadatas, project_uuid)
         self.gcs_xfer.subscribe_job_complete(export_job_id, callback)
 
     def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str):
@@ -72,6 +73,7 @@ class DcpStagingClient:
         self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], project_uuid, export_job_id)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
+        print(f"Writing metadata for project: {project_uuid}")
         for metadata in metadatas:
             self.write_metadata(metadata, project_uuid)
 
