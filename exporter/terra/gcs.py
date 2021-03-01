@@ -145,10 +145,11 @@ class GcsXferStorage:
 
         def cb(msg):
             if msg.attributes:
-                print(f"Job with job name {msg.attributes['transferJobName']} complete")
-
                 if msg.attributes["eventType"] == "TRANSFER_OPERATION_SUCCESS" and msg.attributes["transferJobName"] == f"transferJobs/{export_job_id}":
+                    print(f"Export job with job name {msg.attributes['transferJobName']} complete")
                     callback()
+                else:
+                    print(f"Export job with job name {msg.attributes['transferJobName']} incomplete with event type {msg.attributes['eventType']}")
             msg.ack()
         
         streaming_pull_future = self.gcs_subscriber.subscribe(subscription_path, callback=cb)
