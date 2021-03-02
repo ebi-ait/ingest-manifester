@@ -171,8 +171,8 @@ class GcsXferStorage:
                 three_hours_in_seconds = 60 * 60 * 3
                 streaming_pull_future.result(timeout=three_hours_in_seconds)
             except TimeoutError:
-                raise Exception(f"Timed out waiting for data files to transfer for job {export_job_id}")
                 streaming_pull_future.cancel()
+                raise Exception(f"Timed out waiting for data files to transfer for job {export_job_id}")
 
     def _stop_pulling_messages(self, future):
         future.cancel()
