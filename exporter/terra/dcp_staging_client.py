@@ -62,15 +62,11 @@ class DcpStagingClient:
         self.schema_service = schema_service
         self.ingest_client = ingest_client
 
-    def transfer_submission(self, submission: Dict, metadatas: Iterable[MetadataResource], project_uuid, export_job_id: str):
-        self.transfer_data_files(submission, project_uuid, export_job_id)
-        callback = partial(self.write_metadatas, metadatas, project_uuid)
-        self.gcs_xfer.subscribe_job_complete(export_job_id, callback)
-
-    def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str):
+    def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str, callback):
         upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
         self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], project_uuid, export_job_id)
+        self.gcs_xfer.subscribe_job_complete(export_job_id, callback)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         print(f"Writing metadata for project: {project_uuid}")
@@ -95,6 +91,7 @@ class DcpStagingClient:
             self.write_file_descriptor(metadata, project_uuid)
 
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
+        print(f"Writing links for project: {project_uuid}")
         dest_object_key = f'{project_uuid}/links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
         links_json = self.generate_links_json(link_set)
         data_stream = DcpStagingClient.dict_to_json_stream(links_json)
