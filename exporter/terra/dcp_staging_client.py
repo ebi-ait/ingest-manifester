@@ -69,7 +69,6 @@ class DcpStagingClient:
         self.gcs_xfer.subscribe_job_complete(export_job_id, callback)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
-        print(f"Writing metadata for project: {project_uuid}")
         for metadata in metadatas:
             self.write_metadata(metadata, project_uuid)
 
@@ -91,7 +90,6 @@ class DcpStagingClient:
             self.write_file_descriptor(metadata, project_uuid)
 
     def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
-        print(f"Writing links for project: {project_uuid}")
         dest_object_key = f'{project_uuid}/links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
         links_json = self.generate_links_json(link_set)
         data_stream = DcpStagingClient.dict_to_json_stream(links_json)

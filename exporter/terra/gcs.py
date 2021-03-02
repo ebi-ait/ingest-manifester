@@ -106,7 +106,6 @@ class GcsXferStorage:
             raise
 
     def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str) -> TransferJobSpec:
-        print(f"Starting transfer job with name transferJobs/{export_job_id}")
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
                                project_id=self.project_id,
