@@ -88,7 +88,8 @@ class GcsXferStorage:
         self.credentials = credentials
         self.gcs_notification_topic = gcs_notification_topic
         self.gcs_notification_sub = gcs_notification_sub
-        self.gcs_subscriber = pubsub_v1.SubscriberClient()
+        self.current_export_job = None
+        self.current_export_job_cb = None
 
         self.client = self.create_transfer_client()
         self.logger = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ class GcsXferStorage:
             raise
 
     def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str) -> TransferJobSpec:
+        print(f"Starting transfer job with name transferJobs/{export_job_id}")
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
                                project_id=self.project_id,
@@ -141,26 +143,42 @@ class GcsXferStorage:
                     raise
 
     def subscribe_job_complete(self, export_job_id: str, callback):
-        subscription_path = self.gcs_subscriber.subscription_path(self.project_id, self.gcs_notification_sub)
+        if(self.current_export_job is None):
+            self.current_export_job = export_job_id
+            self.current_export_job_cb = callback
+        else:
+            raise Exception("Currently processing an export. Cannot process another one.")
+        self._start_pulling_messages()
 
+    def _start_pulling_messages(self):
+        streaming_pull_future = None
         def cb(msg):
             if msg.attributes:
-                if msg.attributes["eventType"] == "TRANSFER_OPERATION_SUCCESS" and msg.attributes["transferJobName"] == f"transferJobs/{export_job_id}":
-                    print(f"Export job with job name {msg.attributes['transferJobName']} complete")
-                    callback()
+                if msg.attributes["eventType"] != "TRANSFER_OPERATION_SUCCESS":
+                    raise Exception(f"Unknown event type {msg.attributes['eventType']}")
+                if msg.attributes["transferJobName"] == f"transferJobs/{self.current_export_job}":
+                    self.current_export_job_cb()
+                    msg.ack()
+                    self._stop_pulling_messages(streaming_pull_future)
                 else:
-                    print(f"Export job with job name {msg.attributes['transferJobName']} incomplete with event type {msg.attributes['eventType']}")
-            msg.ack()
+                    msg.nack()
+
+        gcs_subscriber = pubsub_v1.SubscriberClient()
+        subscription_path = gcs_subscriber.subscription_path(self.project_id, self.gcs_notification_sub)
+        streaming_pull_future = gcs_subscriber.subscribe(subscription_path, callback=cb)
         
-        streaming_pull_future = self.gcs_subscriber.subscribe(subscription_path, callback=cb)
-        with self.gcs_subscriber:
+        with gcs_subscriber:
             try:
-                # When `timeout` is not set, result() will block indefinitely,
-                # unless an exception is encountered first.
-                timeout = 5.0
-                streaming_pull_future.result(timeout=timeout)
+                three_hours_in_seconds = 60 * 60 * 3
+                streaming_pull_future.result(timeout=three_hours_in_seconds)
             except TimeoutError:
+                raise Exception(f"Timed out waiting for data files to transfer for job {export_job_id}")
                 streaming_pull_future.cancel()
+
+    def _stop_pulling_messages(self, future):
+        future.cancel()
+        self.current_export_job_cb = None
+        self.current_export_job = None
 
     def create_transfer_client(self):
         return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)
