@@ -168,8 +168,8 @@ class GcsXferStorage:
         
         with gcs_subscriber:
             try:
-                three_hours_in_seconds = 60 * 60 * 3
-                streaming_pull_future.result(timeout=three_hours_in_seconds)
+                timeout = 60 * 60 * 6
+                streaming_pull_future.result(timeout=timeout)
             except TimeoutError:
                 streaming_pull_future.cancel()
                 raise Exception(f"Timed out waiting for data files to transfer for job {export_job_id}")
