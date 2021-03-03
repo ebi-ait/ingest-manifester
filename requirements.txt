@@ -6,6 +6,7 @@ google-cloud-storage
 boto3
 boto3-stubs[s3]
 cachetools
--e git+https://github.com/HumanCellAtlas/ingest-client.git@74472037#egg=hca_ingest
+-e git+https://github.com/ebi-ait/ingest-client.git@782dd754#egg=hca_ingest
 smart_open[all]
 google-api-python-client
+google-cloud-pubsub

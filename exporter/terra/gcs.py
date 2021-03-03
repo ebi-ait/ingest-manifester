@@ -6,6 +6,8 @@ from datetime import datetime
 import time
 
 from google.cloud import storage
+from concurrent.futures import TimeoutError
+from google.cloud import pubsub_v1
 from google.oauth2.service_account import Credentials
 from google.api_core.exceptions import PreconditionFailed, ServiceUnavailable
 from google.api_core import retry
@@ -66,17 +68,18 @@ class TransferJobSpec:
                 'transferOptions': {
                     'overwriteObjectsAlreadyExistingInSink': False
                 }
-            }#,
-            #'notificationConfig': {
-            #    'pubsubTopic': self.gcs_notification_topic,
-            #    'payloadFormat': 'JSON'
-            #}
+            },
+            'notificationConfig': {
+                'pubsubTopic': f'projects/{self.project_id}/topics/{self.gcs_notification_topic}',
+                'eventTypes': ['TRANSFER_OPERATION_SUCCESS'],
+                'payloadFormat': 'JSON'
+            }
         }
 
 
 class GcsXferStorage:
 
-    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials, gcs_notification_topic: str):
+    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials, gcs_notification_topic: str, gcs_notification_sub: str):
         self.aws_access_key_id = aws_access_key_id
         self.aws_access_key_secret = aws_access_key_secret
         self.project_id = project_id
@@ -84,6 +87,9 @@ class GcsXferStorage:
         self.gcs_bucket_prefix = gcs_dest_prefix
         self.credentials = credentials
         self.gcs_notification_topic = gcs_notification_topic
+        self.gcs_notification_sub = gcs_notification_sub
+        self.current_export_job = None
+        self.current_export_job_cb = None
 
         self.client = self.create_transfer_client()
         self.logger = logging.getLogger(__name__)
@@ -94,16 +100,10 @@ class GcsXferStorage:
 
         try:
             maybe_existing_job = self.get_job(transfer_job.name)
-            if maybe_existing_job is not None:
-                self.assert_job_complete(transfer_job.name)
-            else:
+            if maybe_existing_job is None:
                 self.client.transferJobs().create(body=transfer_job.to_dict()).execute()
-                self.assert_job_complete(transfer_job.name)
         except HttpError as e:
-            if e.resp.status == 409:
-                self.assert_job_complete(transfer_job.name)
-            else:
-                raise
+            raise
 
     def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str) -> TransferJobSpec:
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
@@ -141,31 +141,43 @@ class GcsXferStorage:
                 else:
                     raise
 
-    def assert_job_complete(self, job_name: str):
-        two_seconds = 2
-        three_hours_in_seconds = 60 * 60 * 3
-        return self._assert_job_complete(job_name, two_seconds, 0, three_hours_in_seconds)
-
-    def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
-        if time_waited > max_wait_time_secs:
-            raise Exception(f'Timeout waiting for transfer job to succeed for job {job_name}')
+    def subscribe_job_complete(self, export_job_id: str, callback):
+        if(self.current_export_job is None):
+            self.current_export_job = export_job_id
+            self.current_export_job_cb = callback
         else:
-            request = self.client.transferOperations().list(name="transferOperations",
-                                                            filter=json.dumps({
-                                                                "project_id": self.project_id,
-                                                                "job_names": [job_name]
-                                                            }))
-            response: Dict = request.execute()
-            try:
-                if response.get("operations") and len(response["operations"]) > 0 and response["operations"][0].get("done"):
-                    return
+            raise Exception("Currently processing an export. Cannot process another one.")
+        self._start_pulling_messages()
+
+    def _start_pulling_messages(self):
+        streaming_pull_future = None
+        def cb(msg):
+            if msg.attributes:
+                if msg.attributes["eventType"] != "TRANSFER_OPERATION_SUCCESS":
+                    raise Exception(f"Unknown event type {msg.attributes['eventType']}")
+                if msg.attributes["transferJobName"] == f"transferJobs/{self.current_export_job}":
+                    self.current_export_job_cb()
+                    msg.ack()
+                    self._stop_pulling_messages(streaming_pull_future)
                 else:
-                    self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(wait_time)} seconds.'
-                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
-                    time.sleep(wait_time)
-                    return self._assert_job_complete(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
-            except (KeyError, IndexError) as e:
-                raise Exception(f'Failed to parse transferOperations') from e
+                    msg.nack()
+
+        gcs_subscriber = pubsub_v1.SubscriberClient()
+        subscription_path = gcs_subscriber.subscription_path(self.project_id, self.gcs_notification_sub)
+        streaming_pull_future = gcs_subscriber.subscribe(subscription_path, callback=cb)
+        
+        with gcs_subscriber:
+            try:
+                timeout = 60 * 60 * 6
+                streaming_pull_future.result(timeout=timeout)
+            except TimeoutError:
+                streaming_pull_future.cancel()
+                raise Exception(f"Timed out waiting for data files to transfer for job {export_job_id}")
+
+    def _stop_pulling_messages(self, future):
+        future.cancel()
+        self.current_export_job_cb = None
+        self.current_export_job = None
 
     def create_transfer_client(self):
         return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)

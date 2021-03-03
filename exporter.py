@@ -84,6 +84,7 @@ def setup_terra_exporter() -> Thread:
     aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
     aws_access_key_secret = os.environ['AWS_ACCESS_KEY_SECRET']
     gcs_svc_credentials_path = os.environ['GCP_SVC_ACCOUNT_KEY_PATH']
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = gcs_svc_credentials_path
     gcp_project = os.environ['GCP_PROJECT']
     terra_bucket_name = os.environ['TERRA_BUCKET_NAME']
     terra_bucket_prefix = os.environ['TERRA_BUCKET_PREFIX']
@@ -99,7 +100,7 @@ def setup_terra_exporter() -> Thread:
                           .with_ingest_client(ingest_client)
                           .with_schema_service(schema_service)
                           .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
-                          .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret, gcs_notification_topic)
+                          .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret, gcs_notification_topic, gcs_notification_sub)
                           .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)

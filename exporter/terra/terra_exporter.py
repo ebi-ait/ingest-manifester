@@ -3,6 +3,7 @@ from exporter.metadata import MetadataResource, MetadataService, DataFile
 from exporter.graph.graph_crawler import GraphCrawler
 from exporter.terra.dcp_staging_client import DcpStagingClient
 from typing import Iterable
+from functools import partial 
 
 
 class TerraExporter:
@@ -16,21 +17,21 @@ class TerraExporter:
         self.graph_crawler = graph_crawler
         self.dcp_staging_client = dcp_staging_client
 
-    def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version, export_job_id):
+    def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version, export_job_id):      
         process = self.get_process(process_uuid)
         project = self.project_for_process(process)
         submission = self.get_submission(submission_uuid)
-        
-        self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
-        
+
+        cb = partial(self._export_metadata, process_uuid, experiment_uuid, experiment_version)
+        self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id, cb)
+
+    def _export_metadata(self, process_uuid, experiment_uuid, experiment_version):
+        process = self.get_process(process_uuid)
+        project = self.project_for_process(process)
         experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
-        
+
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes(), project.uuid)
         self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
-
-    def export_data(self, submission_uuid, project_uuid, export_job_id):
-        submission = self.get_submission(submission_uuid)        
-        self.dcp_staging_client.transfer_data_files(submission, project_uuid, export_job_id)
 
     def export_update(self, metadata_urls: Iterable[str]):
         metadata_to_update = [self.metadata_service.fetch_resource(url) for url in metadata_urls]
