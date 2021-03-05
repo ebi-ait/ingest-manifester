@@ -91,7 +91,6 @@ class _TerraListener(ConsumerProducerMixin):
                  terra_exporter: TerraExporter,
                  job_service: TerraExportJobService,
                  experiment_queue_config: QueueConfig,
-                 data_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
                  publish_queue_config: QueueConfig,
                  executor: ThreadPoolExecutor):
@@ -99,7 +98,6 @@ class _TerraListener(ConsumerProducerMixin):
         self.terra_exporter = terra_exporter
         self.job_service = job_service
         self.experiment_queue_config = experiment_queue_config
-        self.data_queue_config = data_queue_config
         self.update_queue_config = update_queue_config
         self.publish_queue_config = publish_queue_config
         self.executor = executor
@@ -112,15 +110,10 @@ class _TerraListener(ConsumerProducerMixin):
                                         callbacks=[self.experiment_message_handler],
                                         prefetch_count=1)
 
-        #data_consumer = _consumer([_TerraListener.queue_from_config(self.data_queue_config)],
-        #                                callbacks=[self.data_message_handler],
-        #                                prefetch_count=1)
-
         update_consumer = _consumer([_TerraListener.queue_from_config(self.update_queue_config)],
                                     callbacks=[self.update_message_handler],
                                     prefetch_count=1)
 
-        #return [experiment_consumer, data_consumer, update_consumer]
         return [experiment_consumer, update_consumer]
 
     def experiment_message_handler(self, body: str, msg: Message):
@@ -143,22 +136,6 @@ class _TerraListener(ConsumerProducerMixin):
 
         except Exception as e:
             self.logger.error(f'Failed to export experiment message with body: {body}')
-            self.logger.exception(e)
-
-    def data_message_handler(self, body: str, msg: Message):
-        return self.executor.submit(lambda: self._data_message_handler(body, msg))
-
-    def _data_message_handler(self, body: str, msg: Message):
-        try:
-            sub = DataExportMessage.from_dict(json.loads(body))
-            self.logger.info(f'Received data submission message for submission {sub.submission_uuid})')
-            self.terra_exporter.export_data(sub.submission_uuid, sub.job_id)
-            self.logger.info(f'Data submission started --submission {sub.submission_uuid})')
-            
-            msg.ack()
-
-        except Exception as e:
-            self.logger.error(f'Failed to start data submission message with body: {body}')
             self.logger.exception(e)
 
     def update_message_handler(self, body: str, msg: Message):
@@ -190,18 +167,16 @@ class TerraListener:
                  terra_exporter: TerraExporter,
                  job_service: TerraExportJobService,
                  experiment_queue_config: QueueConfig,
-                 data_queue_config: QueueConfig,
                  update_queue_config: QueueConfig,
                  publish_queue_config: QueueConfig):
         self.amqp_conn_config = amqp_conn_config
         self.terra_exporter = terra_exporter
         self.job_service = job_service
         self.experiment_queue_config = experiment_queue_config
-        self.data_queue_config = data_queue_config
         self.update_queue_config = update_queue_config
         self.publish_queue_config = publish_queue_config
 
     def run(self):
         with Connection(self.amqp_conn_config.broker_url()) as conn:
-            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config, self.data_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
+            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
             _terra_listener.run()
