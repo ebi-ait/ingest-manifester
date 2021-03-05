@@ -87,10 +87,9 @@ def setup_terra_exporter() -> Thread:
     gcp_project = os.environ['GCP_PROJECT']
     terra_bucket_name = os.environ['TERRA_BUCKET_NAME']
     terra_bucket_prefix = os.environ['TERRA_BUCKET_PREFIX']
-    gcs_notification_topic = os.environ['TERRA_GCS_NOTIFICATION_TOPIC']
-    gcs_notification_sub = os.environ['TERRA_GCS_NOTIFICATION_SUB']
 
     ingest_client = IngestApi(ingest_api_url)
+
     metadata_service = MetadataService(ingest_client)
     schema_service = SchemaService(ingest_client)
     graph_crawler = GraphCrawler(metadata_service)
@@ -99,7 +98,7 @@ def setup_terra_exporter() -> Thread:
                           .with_ingest_client(ingest_client)
                           .with_schema_service(schema_service)
                           .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
-                          .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret, gcs_notification_topic)
+                          .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret)
                           .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)

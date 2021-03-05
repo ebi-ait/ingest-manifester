@@ -149,11 +149,11 @@ class DcpStagingClient:
 
                 return self
 
-        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str, gcs_notification_topic: str):
+        def with_gcs_xfer(self, service_account_credentials_path: str, gcp_project: str, bucket_name: str, bucket_prefix: str, aws_access_key_id: str, aws_access_key_secret: str):
             with open(service_account_credentials_path) as source:
                 info = json.load(source)
                 credentials: Credentials = Credentials.from_service_account_info(info)
-                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials, gcs_notification_topic)
+                self.gcs_xfer = GcsXferStorage(aws_access_key_id, aws_access_key_secret, gcp_project, bucket_name, bucket_prefix, credentials)
 
                 return self
 
