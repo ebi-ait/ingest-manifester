@@ -17,9 +17,6 @@ import json
 class ExperimentMessageParseExpection(Exception):
     pass
 
-class DataExportMessageParseExpection(Exception):
-    pass
-
 class SimpleUpdateMessageParseExpection(Exception):
     pass
 
@@ -48,22 +45,6 @@ class ExperimentMessage:
                                      data["exportJobId"])
         except (KeyError, TypeError) as e:
             raise ExperimentMessageParseExpection(e)
-
-
-@dataclass
-class DataExportMessage:
-    submission_uuid: str
-    project_uuid: str
-    job_id: str
-
-    @staticmethod
-    def from_dict(data: Dict) -> 'DataExportMessage':
-        try:
-            return DataExportMessage(data["submissionUuid"],
-                                     data["projectUuid"],
-                                     data["exportJobId"])
-        except (KeyError, TypeError) as e:
-            raise DataExportMessageParseExpection(e)
 
 
 @dataclass
