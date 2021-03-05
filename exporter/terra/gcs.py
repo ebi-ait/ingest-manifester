@@ -162,6 +162,10 @@ class GcsXferStorage:
                                      f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
                     time.sleep(wait_time)
 
+                    # Wait time is first doubled and then limited to 10 minutes
+                    # This is due to the quota limit: https://cloud.google.com/storage-transfer/quotas
+                    # Other areas in exporter that use quota are self.get_job and GcsStorage.assert_file_uploaded
+                    # This can be tweaked
                     new_wait_time = min(wait_time * 2, 10 * 60)
                     return self._assert_job_complete(job_name, new_wait_time, time_waited + wait_time, max_wait_time_secs)
             except (KeyError, IndexError) as e:
