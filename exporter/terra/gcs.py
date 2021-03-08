@@ -142,7 +142,7 @@ class GcsXferStorage:
 
     def assert_job_complete(self, job_name: str):
         six_hours_in_seconds = 60 * 60 * 6
-        return self._assert_job_complete(job_name, 2, 0, 1)
+        return self._assert_job_complete(job_name, 2, 0, 60)
 
     def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
         if time_waited > max_wait_time_secs:
