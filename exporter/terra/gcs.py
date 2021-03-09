@@ -127,9 +127,8 @@ class GcsXferStorage:
             raise Exception(f'Timeout trying to read transfer job {job_name}')
         else:
             try:
-                maybe_existing_job = self.client.transferJobs().get(jobName=job_name,
+                return self.client.transferJobs().get(jobName=job_name,
                                                                     projectId=self.project_id).execute()
-                return maybe_existing_job
             except HttpError as e:
                 if e.resp.status == 404:
                     return None
@@ -142,9 +141,10 @@ class GcsXferStorage:
                     raise
 
     def assert_job_complete(self, job_name: str):
-        two_seconds = 2
-        three_hours_in_seconds = 60 * 60 * 3
-        return self._assert_job_complete(job_name, two_seconds, 0, three_hours_in_seconds)
+        max_wait_time_seconds = 60 * 60 * 6
+        wait_time_seconds = 2
+        time_waited_seconds = 0
+        return self._assert_job_complete(job_name, wait_time_seconds, time_waited_seconds, max_wait_time_seconds)
 
     def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
         if time_waited > max_wait_time_secs:
@@ -163,7 +163,13 @@ class GcsXferStorage:
                     self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(wait_time)} seconds.'
                                      f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
                     time.sleep(wait_time)
-                    return self._assert_job_complete(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
+
+                    # Wait time is first doubled and then limited to 10 minutes
+                    # This is due to the quota limit: https://cloud.google.com/storage-transfer/quotas
+                    # Other areas in exporter that use quota are self.get_job and GcsStorage.assert_file_uploaded
+                    # This can be tweaked
+                    new_wait_time = min(wait_time * 2, 10 * 60)
+                    return self._assert_job_complete(job_name, new_wait_time, time_waited + wait_time, max_wait_time_secs)
             except (KeyError, IndexError) as e:
                 raise Exception(f'Failed to parse transferOperations') from e
 
