@@ -29,7 +29,6 @@ class TransferJobSpec:
     aws_access_key_secret: str
     dest_bucket: str
     dest_path: str
-    gcs_notification_topic: str
 
     def to_dict(self) -> Dict:
         start_date = datetime.now()
@@ -66,24 +65,19 @@ class TransferJobSpec:
                 'transferOptions': {
                     'overwriteObjectsAlreadyExistingInSink': False
                 }
-            }#,
-            #'notificationConfig': {
-            #    'pubsubTopic': self.gcs_notification_topic,
-            #    'payloadFormat': 'JSON'
-            #}
+            }
         }
 
 
 class GcsXferStorage:
 
-    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials, gcs_notification_topic: str):
+    def __init__(self, aws_access_key_id: str, aws_access_key_secret: str, project_id: str, gcs_dest_bucket: str, gcs_dest_prefix: str, credentials: Credentials):
         self.aws_access_key_id = aws_access_key_id
         self.aws_access_key_secret = aws_access_key_secret
         self.project_id = project_id
         self.gcs_dest_bucket = gcs_dest_bucket
         self.gcs_bucket_prefix = gcs_dest_prefix
         self.credentials = credentials
-        self.gcs_notification_topic = gcs_notification_topic
 
         self.client = self.create_transfer_client()
         self.logger = logging.getLogger(__name__)
@@ -114,8 +108,7 @@ class GcsXferStorage:
                                aws_access_key_id=self.aws_access_key_id,
                                aws_access_key_secret=self.aws_access_key_secret,
                                dest_bucket=self.gcs_dest_bucket,
-                               dest_path=f'{self.gcs_bucket_prefix}/{project_uuid}/data/',
-                               gcs_notification_topic=self.gcs_notification_topic)
+                               dest_path=f'{self.gcs_bucket_prefix}/{project_uuid}/data/')
 
     def get_job(self, job_name: str) -> Optional[Dict]:
         two_seconds = 2

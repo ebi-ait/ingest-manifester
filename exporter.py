@@ -36,7 +36,6 @@ UPDATE_QUEUE_TERRA = 'ingest.terra.updates.new'
 
 ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
 EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
-DATA_ROUTING_KEY = 'ingest.assay.data.submitted'
 
 UPDATE_ROUTING_KEY = 'ingest.update.experiment.submitted'
 ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
@@ -87,10 +86,9 @@ def setup_terra_exporter() -> Thread:
     gcp_project = os.environ['GCP_PROJECT']
     terra_bucket_name = os.environ['TERRA_BUCKET_NAME']
     terra_bucket_prefix = os.environ['TERRA_BUCKET_PREFIX']
-    gcs_notification_topic = os.environ['TERRA_GCS_NOTIFICATION_TOPIC']
-    gcs_notification_sub = os.environ['TERRA_GCS_NOTIFICATION_SUB']
 
     ingest_client = IngestApi(ingest_api_url)
+
     metadata_service = MetadataService(ingest_client)
     schema_service = SchemaService(ingest_client)
     graph_crawler = GraphCrawler(metadata_service)
@@ -99,7 +97,7 @@ def setup_terra_exporter() -> Thread:
                           .with_ingest_client(ingest_client)
                           .with_schema_service(schema_service)
                           .with_gcs_info(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix)
-                          .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret, gcs_notification_topic)
+                          .with_gcs_xfer(gcs_svc_credentials_path, gcp_project, terra_bucket_name, terra_bucket_prefix, aws_access_key_id, aws_access_key_secret)
                           .build())
 
     terra_exporter = TerraExporter(ingest_client, metadata_service, graph_crawler, dcp_staging_client)
@@ -109,11 +107,10 @@ def setup_terra_exporter() -> Thread:
     rabbit_port = int(os.environ.get('RABBIT_PORT', '5672'))
     amqp_conn_config = AmqpConnConfig(rabbit_host, rabbit_port)
     experiment_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, EXPERIMENT_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
-    data_queue_config = QueueConfig(EXPERIMENT_QUEUE_TERRA, DATA_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
     update_queue_config = QueueConfig(UPDATE_QUEUE_TERRA, UPDATE_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, False, None)
     publish_queue_config = QueueConfig(None, EXPERIMENT_COMPLETED_ROUTING_KEY, EXCHANGE, EXCHANGE_TYPE, True, RETRY_POLICY)
 
-    terra_listener = TerraListener(amqp_conn_config, terra_exporter, terra_job_service, experiment_queue_config, data_queue_config, update_queue_config, publish_queue_config)
+    terra_listener = TerraListener(amqp_conn_config, terra_exporter, terra_job_service, experiment_queue_config, update_queue_config, publish_queue_config)
 
     terra_exporter_listener_process = Thread(target=lambda: terra_listener.run())
     terra_exporter_listener_process.start()
