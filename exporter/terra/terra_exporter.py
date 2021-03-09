@@ -26,7 +26,7 @@ class TerraExporter:
         project = self.project_for_process(process)
         submission = self.get_submission(submission_uuid)
 
-        export_data = not "Export metadata" in submission.get("submitActions", [])
+        export_data = "Export metadata" not in submission.get("submitActions", [])
 
         self.logger.info(f"The export data flag has been set to {export_data}")
 
