@@ -4,6 +4,8 @@ from exporter.graph.graph_crawler import GraphCrawler
 from exporter.terra.dcp_staging_client import DcpStagingClient
 from typing import Iterable
 
+import logging
+
 
 class TerraExporter:
     def __init__(self,
@@ -16,13 +18,23 @@ class TerraExporter:
         self.graph_crawler = graph_crawler
         self.dcp_staging_client = dcp_staging_client
 
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+
     def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version, export_job_id):
         process = self.get_process(process_uuid)
         project = self.project_for_process(process)
         submission = self.get_submission(submission_uuid)
-        
-        self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
-        
+
+        export_data = not "Export metadata" in submission.get("submitActions", [])
+
+        self.logger.info(f"The export data flag has been set to {export_data}")
+
+        if export_data:
+            self.logger.info("Exporting data files..")
+            self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
+
+        self.logger.info("Exporting metadata..")
         experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
         
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes(), project.uuid)
