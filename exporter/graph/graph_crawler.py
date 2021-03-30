@@ -33,7 +33,13 @@ class GraphCrawler:
         return experiment_process_graph.extend(supplementary_files_graph)
 
     def experiment_graph_for_process(self, process: MetadataResource) -> ExperimentGraph:
-        return self._crawl(process)
+        upper_graph = self._crawl_up(process)
+        lower_graph = self._crawl_down(process)
+        initial_graph = ExperimentGraph()
+
+        return reduce(lambda g1, g2: g1.extend(g2),
+               [upper_graph, lower_graph],
+               initial_graph)
 
     def supplementary_files_graph(self, project: MetadataResource) -> ExperimentGraph:
         """
@@ -55,7 +61,7 @@ class GraphCrawler:
             graph.nodes.add_node(project)
             return graph
 
-    def _crawl(self, process: MetadataResource) -> ExperimentGraph:
+    def _crawl_up(self, process: MetadataResource) -> ExperimentGraph:
         partial_graph = ExperimentGraph()
 
         process_info = self.process_info(process)
@@ -65,7 +71,20 @@ class GraphCrawler:
         processes_to_crawl = GraphCrawler.flatten([self.metadata_service.get_derived_by_processes(i) for i in process_info.inputs])
 
         return reduce(lambda g1, g2: g1.extend(g2),
-                      map(lambda proc: self._crawl(proc), processes_to_crawl),
+                      map(lambda proc: self._crawl_up(proc), processes_to_crawl),
+                      partial_graph)
+
+    def _crawl_down(self, process: MetadataResource) -> ExperimentGraph:
+        partial_graph = ExperimentGraph()
+
+        process_info = self.process_info(process)
+        partial_graph.nodes.add_nodes(process_info.inputs + process_info.outputs + process_info.protocols + [process])
+        partial_graph.links.add_link(GraphCrawler.process_link_for(process_info))
+
+        processes_to_crawl = GraphCrawler.flatten([self.metadata_service.get_input_to_processes(i) for i in process_info.outputs])
+
+        return reduce(lambda g1, g2: g1.extend(g2),
+                      map(lambda proc: self._crawl_down(proc), processes_to_crawl),
                       partial_graph)
 
     @staticmethod

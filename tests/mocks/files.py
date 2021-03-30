@@ -40,6 +40,10 @@ class MockEntityFiles:
                     if line.find('/') > 0:
                         yield self.get_entity(line.split('/')[0].strip(), line.split('/')[1].strip())
 
+    def get_links_json(self):
+        links_file_path = os.path.dirname(__file__) + '/links.json'
+        return self.load_json_file(links_file_path)
+
     @staticmethod
     def load_json_file(location: Path) -> dict:
         file_path = Path(location)
