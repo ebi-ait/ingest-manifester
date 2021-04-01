@@ -15,7 +15,7 @@
       "document": "TissueDissociationProtocol.pdf",
       "protocol_id": "tissue_dissociation_protocol"
     },
-    "describedBy": "https://schema.humancellatlas.org/type/protocol/5.1.0/protocol",
+    "describedBy": "https://schema.humancellatlas.org/type/protocol/5.1.0/dissociation_protocol",
     "schema_type": "protocol"
   },
   "accession": null,

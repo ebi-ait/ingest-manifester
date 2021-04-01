@@ -15,7 +15,7 @@
       "document": "SmartSeq2_RTPCR_protocol.pdf",
       "protocol_id": "SmartSeq2_RTPCR_protocol"
     },
-    "describedBy": "https://schema.humancellatlas.org/type/protocol/5.1.0/protocol",
+    "describedBy": "https://schema.humancellatlas.org/type/protocol/5.1.0/lib_prep_protocol",
     "protocol_type": {
       "text": "Smart-seq2 protocol",
       "ontology": "EFO:0008442"

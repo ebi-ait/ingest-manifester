@@ -22,11 +22,11 @@
       ],
       "protocols": [
         {
-          "protocol_type": "protocol",
+          "protocol_type": "lib_prep_protocol",
           "protocol_id": "92300067-cf51-4ed8-95f5-cedc41ce9af1"
         },
         {
-          "protocol_type": "protocol",
+          "protocol_type": "sequencing_protocol",
           "protocol_id": "8d6db096-f623-4e02-ab07-6aefe218c2dd"
         }
       ]
@@ -49,11 +49,11 @@
       ],
       "protocols": [
         {
-          "protocol_type": "protocol",
+          "protocol_type": "dissociation_protocol",
           "protocol_id": "6a04c2c7-aaa2-4deb-908c-15faadba8775"
         },
         {
-          "protocol_type": "protocol",
+          "protocol_type": "sorting_protocol",
           "protocol_id": "d26b3529-f0cf-4969-8bbc-5e6eb28ab4cc"
         }
       ]
