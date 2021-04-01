@@ -35,7 +35,7 @@ class TerraExporter:
             self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
 
         self.logger.info("Exporting metadata..")
-        experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
+        experiment_graph = self.graph_crawler.generate_complete_experiment_graph(process, project)
         
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes(), project.uuid)
         self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
