@@ -11,9 +11,9 @@
   "events": [],
   "content": {
     "protocol_core": {
-      "protocol_name": "FACS sorting cells by surface markers",
-      "document": "FACSsortingProtocol.pdf",
-      "protocol_id": "FACS_sorting_protocol"
+      "protocol_name": "Mock analysis protocol",
+      "document": "AnalysisProtocol.pdf",
+      "protocol_id": "analysis_protocol"
     },
     "describedBy": "https://schema.humancellatlas.org/type/protocol/1.0.0/analysis_protocol",
     "schema_type": "protocol"

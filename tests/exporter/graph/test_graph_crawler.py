@@ -40,15 +40,18 @@ class GraphCrawlerTest(TestCase):
         self.assertEqual(len(experiment_graph.links.get_links()), 1)  # project, and 2 supplementary files
 
     def test_generate_complete_experiment_graph(self):
+        # given
         ingest_client = self.ingest
         crawler = GraphCrawler(MetadataService(ingest_client))
 
         test_assay_process = MetadataResource.from_dict(self.mock_files.get_entity('processes', 'mock-assay-process'))
         test_project = MetadataResource.from_dict(self.mock_files.get_entity('projects', 'mock-project'))
+
+        # when
         experiment_graph = crawler.generate_experiment_graph(test_assay_process, test_project)
 
         expected_links = self.mock_files.get_links_json()
 
         self.assertEqual(len(experiment_graph.nodes.get_nodes()), 18)
-        self.assertEqual(len(experiment_graph.links.get_links()), 5)  # 3 process links and 1 supplementary files link
+        self.assertEqual(len(experiment_graph.links.get_links()), 5)  # 4 process links and 1 supplementary files link
         self.assertEqual(experiment_graph.links.to_dict(), expected_links)

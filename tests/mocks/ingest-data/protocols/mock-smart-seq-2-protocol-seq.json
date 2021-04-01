@@ -14,7 +14,7 @@
       "protocol_name": "Sequencing SmartSeq2 cells",
       "protocol_id": "SmartSeq2_sequencing_protocol"
     },
-    "describedBy": "https://schema.humancellatlas.org/type/protocol/5.1.0/protocol",
+    "describedBy": "https://schema.humancellatlas.org/type/protocol/5.1.0/sequencing_protocol",
     "schema_type": "protocol"
   },
   "accession": null,
