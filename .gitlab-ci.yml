@@ -5,6 +5,8 @@ Unit Test:
   image: quay.io/ebi-ait/ingest-base-images:python_3.7-alpine
   stage: build
   script:
+    - apt-get update
+    - apt-get install -y git
     - pip install -r requirements.txt
     - pip install -r requirements-dev.txt
     - nosetests
