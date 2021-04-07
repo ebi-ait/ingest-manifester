@@ -21,6 +21,7 @@ python exporter.py
 ```
 pip install -r requirements-dev.txt
 ```
+Run from the project root directory.
 
 ```
 nosetests
