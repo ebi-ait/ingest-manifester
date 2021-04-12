@@ -1,6 +1,6 @@
 from exporter.metadata import MetadataResource, MetadataService
 from exporter.graph.experiment_graph import ExperimentGraph, ProcessLink, Input, Output, ProtocolLink, SupplementaryFileLink, SupplementedEntity, SupplementaryFile
-from typing import List, Iterable, Optional
+from typing import List, Iterable, Optional, Callable
 from functools import reduce
 from operator import iconcat
 from dataclasses import dataclass
@@ -26,16 +26,22 @@ class GraphCrawler:
     def __init__(self, metadata_service: MetadataService):
         self.metadata_service = metadata_service
 
-    def generate_experiment_graph(self, process: MetadataResource, project: MetadataResource) -> ExperimentGraph:
-        experiment_process_graph = self.experiment_graph_for_process(process)
-        supplementary_files_graph = self.supplementary_files_graph(project)
+    def generate_complete_experiment_graph(self, process: MetadataResource, project: MetadataResource) -> ExperimentGraph:
+        experiment_process_graph = self.generate_experiment_graph(process)
+        supplementary_files_graph = self.generate_supplementary_files_graph(project)
 
         return experiment_process_graph.extend(supplementary_files_graph)
 
-    def experiment_graph_for_process(self, process: MetadataResource) -> ExperimentGraph:
-        return self._crawl(process)
+    def generate_experiment_graph(self, process: MetadataResource) -> ExperimentGraph:
+        upward_graph = self._crawl(process, self._crawl_inputs)
+        downward_graph = self._crawl(process, self._crawl_outputs)
+        initial_graph = ExperimentGraph()
 
-    def supplementary_files_graph(self, project: MetadataResource) -> ExperimentGraph:
+        return reduce(lambda g1, g2: g1.extend(g2),
+               [upward_graph, downward_graph],
+               initial_graph)
+
+    def generate_supplementary_files_graph(self, project: MetadataResource) -> ExperimentGraph:
         """
         Finds supplementary files for this project, if any, and generates corresponding links and inserts
         the project node + supplementary file links into a small graph
@@ -55,18 +61,25 @@ class GraphCrawler:
             graph.nodes.add_node(project)
             return graph
 
-    def _crawl(self, process: MetadataResource) -> ExperimentGraph:
+    def _crawl(self, process: MetadataResource, crawl_strategy_func: Callable) -> ExperimentGraph:
         partial_graph = ExperimentGraph()
 
         process_info = self.process_info(process)
         partial_graph.nodes.add_nodes(process_info.inputs + process_info.outputs + process_info.protocols + [process])
         partial_graph.links.add_link(GraphCrawler.process_link_for(process_info))
 
-        processes_to_crawl = GraphCrawler.flatten([self.metadata_service.get_derived_by_processes(i) for i in process_info.inputs])
+        processes_to_crawl = crawl_strategy_func(process_info)
 
         return reduce(lambda g1, g2: g1.extend(g2),
-                      map(lambda proc: self._crawl(proc), processes_to_crawl),
+                      map(lambda proc: self._crawl(proc, crawl_strategy_func), processes_to_crawl),
                       partial_graph)
+
+    def _crawl_inputs(self, process_info: ProcessInfo) -> ExperimentGraph:
+        return GraphCrawler.flatten([self.metadata_service.get_derived_by_processes(i) for i in process_info.inputs])
+
+    def _crawl_outputs(self, process_info: ProcessInfo) -> ExperimentGraph:
+        return GraphCrawler.flatten([self.metadata_service.get_input_to_processes(i) for i in process_info.outputs])
+
 
     @staticmethod
     def process_link_for(process_info: ProcessInfo) -> ProcessLink:

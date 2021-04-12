@@ -16,7 +16,7 @@ class ManifestGenerator:
         process = self.get_process(process_uuid)
         project = self.project_for_process(process)
 
-        experiment_graph = self.graph_crawler.generate_experiment_graph(process, project)
+        experiment_graph = self.graph_crawler.generate_complete_experiment_graph(process, project)
         assay_manifest = ManifestGenerator.assay_manifest_from_experiment_graph(experiment_graph, submission_uuid)
 
         return assay_manifest

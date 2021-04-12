@@ -93,6 +93,9 @@ class MetadataService:
     def get_derived_by_processes(self, experiment_material: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('derivedByProcesses', experiment_material.full_resource, 'processes'))
 
+    def get_input_to_processes(self, experiment_material: MetadataResource) -> List[MetadataResource]:
+        return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('inputToProcesses', experiment_material.full_resource, 'processes'))
+
     def get_derived_biomaterials(self, process: MetadataResource) -> List[MetadataResource]:
         return MetadataService.parse_metadata_resources(self.ingest_client.get_related_entities('derivedBiomaterials', process.full_resource, 'biomaterials'))
 
