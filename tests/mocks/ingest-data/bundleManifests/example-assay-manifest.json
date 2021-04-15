@@ -1,11 +1,12 @@
 {
-  "envelopeUuid": "mock-submission",
   "dataFiles": [
     "uuid1",
     "uuid2",
+    "uuid",
     "uuid3",
     "uuid4"
   ],
+  "envelopeUuid": "mock-submission",
   "fileBiomaterialMap": {
     "47551530-cb55-48f3-8afa-6744cc641297": [
       "47551530-cb55-48f3-8afa-6744cc641297"
@@ -17,29 +18,35 @@
       "c0dc1b0a-f0a6-4171-9315-87a54dfb2197"
     ]
   },
-  "fileProcessMap": {
-    "7770ab57-7c00-467b-a71b-9d006103c0ab": [
-      "7770ab57-7c00-467b-a71b-9d006103c0ab"
-    ],
-    "1c5a46de-1d39-44b0-b8cc-b5f9010d1180": [
-      "1c5a46de-1d39-44b0-b8cc-b5f9010d1180"
-    ],
-    "d7c48e85-3c6d-4f4d-bac4-b17c6ebe0785": [
-      "d7c48e85-3c6d-4f4d-bac4-b17c6ebe0785"
-    ]
-  },
   "fileFilesMap": {
+    "2b6f539d-b2a2-445d-8c7e-96e2e525e670": [
+      "2b6f539d-b2a2-445d-8c7e-96e2e525e670"
+    ],
     "33aa0769-c1cc-434e-a5bb-c166b4fa89df": [
       "33aa0769-c1cc-434e-a5bb-c166b4fa89df"
     ],
-    "2b6f539d-b2a2-445d-8c7e-96e2e525e670": [
-      "2b6f539d-b2a2-445d-8c7e-96e2e525e670"
+    "7b90e769-c1cc-434e-a5bb-c166b4fa89df": [
+      "7b90e769-c1cc-434e-a5bb-c166b4fa89df"
     ],
     "947c0769-c1cc-434e-a5bb-c166b4fa89df": [
       "947c0769-c1cc-434e-a5bb-c166b4fa89df"
     ],
-    "7b90e769-c1cc-434e-a5bb-c166b4fa89df": [
-      "7b90e769-c1cc-434e-a5bb-c166b4fa89df"
+    "c0523a60-cb45-43fd-8718-2eaff1dcdf30": [
+      "c0523a60-cb45-43fd-8718-2eaff1dcdf30"
+    ]
+  },
+  "fileProcessMap": {
+    "1c5a46de-1d39-44b0-b8cc-b5f9010d1180": [
+      "1c5a46de-1d39-44b0-b8cc-b5f9010d1180"
+    ],
+    "7770ab57-7c00-467b-a71b-9d006103c0ab": [
+      "7770ab57-7c00-467b-a71b-9d006103c0ab"
+    ],
+    "d0a37ab3-5e68-4bbb-b0e9-ea32bc723a52": [
+      "d0a37ab3-5e68-4bbb-b0e9-ea32bc723a52"
+    ],
+    "d7c48e85-3c6d-4f4d-bac4-b17c6ebe0785": [
+      "d7c48e85-3c6d-4f4d-bac4-b17c6ebe0785"
     ]
   },
   "fileProjectMap": {
@@ -48,14 +55,17 @@
     ]
   },
   "fileProtocolMap": {
-    "92300067-cf51-4ed8-95f5-cedc41ce9af1": [
-      "92300067-cf51-4ed8-95f5-cedc41ce9af1"
+    "6a04c2c7-aaa2-4deb-908c-15faadba8775": [
+      "6a04c2c7-aaa2-4deb-908c-15faadba8775"
     ],
     "8d6db096-f623-4e02-ab07-6aefe218c2dd": [
       "8d6db096-f623-4e02-ab07-6aefe218c2dd"
     ],
-    "6a04c2c7-aaa2-4deb-908c-15faadba8775": [
-      "6a04c2c7-aaa2-4deb-908c-15faadba8775"
+    "92300067-cf51-4ed8-95f5-cedc41ce9af1": [
+      "92300067-cf51-4ed8-95f5-cedc41ce9af1"
+    ],
+    "a26b3529-f0cf-4969-8bbc-5e6eb28ab4cc": [
+      "a26b3529-f0cf-4969-8bbc-5e6eb28ab4cc"
     ],
     "d26b3529-f0cf-4969-8bbc-5e6eb28ab4cc": [
       "d26b3529-f0cf-4969-8bbc-5e6eb28ab4cc"
