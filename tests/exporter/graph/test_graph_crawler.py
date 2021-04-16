@@ -29,8 +29,8 @@ class GraphCrawlerTest(TestCase):
         experiment_graph = crawler.generate_experiment_graph(test_assay_process)
 
         # then
-        self.assertEqual(len(experiment_graph.nodes.get_nodes()), 12)
-        self.assertEqual(len(experiment_graph.links.get_links()), 3)
+        self.assertEqual(len(experiment_graph.nodes.get_nodes()), 15)
+        self.assertEqual(len(experiment_graph.links.get_links()), 4)
 
     def test_generate_supplementary_files_graph(self):
         # given
