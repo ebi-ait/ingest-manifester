@@ -40,10 +40,6 @@ class TerraExporter:
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes(), project.uuid)
         self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
 
-    def export_update(self, metadata_urls: Iterable[str]):
-        metadata_to_update = [self.metadata_service.fetch_resource(url) for url in metadata_urls]
-        self.dcp_staging_client.write_metadatas(metadata_to_update)
-
     def get_process(self, process_uuid) -> MetadataResource:
         return MetadataResource.from_dict(self.ingest_client.get_entity_by_uuid('processes', process_uuid))
 

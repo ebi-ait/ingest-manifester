@@ -1,4 +1,6 @@
 from kombu.mixins import ConsumerProducerMixin
+from kombu import Consumer
+from typing import Type
 
 
 class Worker(ConsumerProducerMixin):
@@ -6,8 +8,8 @@ class Worker(ConsumerProducerMixin):
         self.connection = connection
         self.queues = queues
 
-    def get_consumers(self, Consumer, channel):
-        return [Consumer(queues=self.queues,
+    def get_consumers(self, consumer: Type[Consumer], channel):
+        return [consumer(queues=self.queues,
                          callbacks=[self.on_message])]
 
 

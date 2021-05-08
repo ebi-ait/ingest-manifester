@@ -17,9 +17,6 @@ import json
 class ExperimentMessageParseExpection(Exception):
     pass
 
-class SimpleUpdateMessageParseExpection(Exception):
-    pass
-
 
 @dataclass
 class ExperimentMessage:
@@ -47,24 +44,6 @@ class ExperimentMessage:
             raise ExperimentMessageParseExpection(e)
 
 
-@dataclass
-class SimpleUpdateMessage:
-    metadata_urls: List[str]
-    submission_uuid: str
-    index: int
-    total: int
-
-    @staticmethod
-    def from_dict(data: Dict) -> 'SimpleUpdateMessage':
-        try:
-            return SimpleUpdateMessage(data["callbackLinks"],
-                                       data["envelopeUuid"],
-                                       data["index"],
-                                       data["total"])
-        except (KeyError, TypeError) as e:
-            raise SimpleUpdateMessageParseExpection(e)
-
-
 class _TerraListener(ConsumerProducerMixin):
 
     def __init__(self,
@@ -72,14 +51,12 @@ class _TerraListener(ConsumerProducerMixin):
                  terra_exporter: TerraExporter,
                  job_service: TerraExportJobService,
                  experiment_queue_config: QueueConfig,
-                 update_queue_config: QueueConfig,
                  publish_queue_config: QueueConfig,
                  executor: ThreadPoolExecutor):
         self.connection = connection
         self.terra_exporter = terra_exporter
         self.job_service = job_service
         self.experiment_queue_config = experiment_queue_config
-        self.update_queue_config = update_queue_config
         self.publish_queue_config = publish_queue_config
         self.executor = executor
 
@@ -91,11 +68,7 @@ class _TerraListener(ConsumerProducerMixin):
                                         callbacks=[self.experiment_message_handler],
                                         prefetch_count=1)
 
-        update_consumer = _consumer([_TerraListener.queue_from_config(self.update_queue_config)],
-                                    callbacks=[self.update_message_handler],
-                                    prefetch_count=1)
-
-        return [experiment_consumer, update_consumer]
+        return [experiment_consumer]
 
     def experiment_message_handler(self, body: str, msg: Message):
         return self.executor.submit(lambda: self._experiment_message_handler(body, msg))
@@ -119,19 +92,6 @@ class _TerraListener(ConsumerProducerMixin):
             self.logger.error(f'Failed to export experiment message with body: {body}')
             self.logger.exception(e)
 
-    def update_message_handler(self, body: str, msg: Message):
-        return self.executor.submit(lambda: self._update_message_handler(body, msg))
-
-    def _update_message_handler(self, body: str, msg: Message):
-        update_message = SimpleUpdateMessage.from_dict(json.loads(body))
-        self.logger.info(f'Received metadata update message for submission {update_message.submission_uuid}) '
-                         f'(--index {update_message.index} --total {update_message.total})')
-        self.terra_exporter.export_update(update_message.metadata_urls)
-        self.logger.info(f'Exported updates for metadata URLs: [ {",".join(update_message.metadata_urls)} ] '
-                         f'(--index {update_message.index} --total {update_message.total})')
-
-        msg.ack()
-
     def log_complete_assay(self, job_id: str, assay_process_id: str):
         self.job_service.complete_assay(job_id, assay_process_id)
 
@@ -148,16 +108,14 @@ class TerraListener:
                  terra_exporter: TerraExporter,
                  job_service: TerraExportJobService,
                  experiment_queue_config: QueueConfig,
-                 update_queue_config: QueueConfig,
                  publish_queue_config: QueueConfig):
         self.amqp_conn_config = amqp_conn_config
         self.terra_exporter = terra_exporter
         self.job_service = job_service
         self.experiment_queue_config = experiment_queue_config
-        self.update_queue_config = update_queue_config
         self.publish_queue_config = publish_queue_config
 
     def run(self):
         with Connection(self.amqp_conn_config.broker_url()) as conn:
-            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config, self.update_queue_config, self.publish_queue_config, ThreadPoolExecutor())
+            _terra_listener = _TerraListener(conn, self.terra_exporter, self.job_service, self.experiment_queue_config, self.publish_queue_config, ThreadPoolExecutor())
             _terra_listener.run()
