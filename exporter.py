@@ -26,19 +26,17 @@ DISABLE_MANIFEST = os.environ.get('DISABLE_MANIFEST', False)
 DEFAULT_RABBIT_URL = os.path.expandvars(
     os.environ.get('RABBIT_URL', 'amqp://localhost:5672'))
 
-EXCHANGE = 'ingest.bundle.exchange'
+EXCHANGE = 'ingest.exporter.exchange'
 EXCHANGE_TYPE = 'topic'
 
 ASSAY_QUEUE_MANIFEST = 'ingest.manifests.assays.new'
 EXPERIMENT_QUEUE_TERRA = 'ingest.terra.experiments.new'
 
-ASSAY_ROUTING_KEY = 'ingest.assay.manifest.submitted'
-EXPERIMENT_ROUTING_KEY = 'ingest.assay.experiment.submitted'
+ASSAY_ROUTING_KEY = 'ingest.exporter.manifest.submitted'
+EXPERIMENT_ROUTING_KEY = 'ingest.exporter.experiment.submitted'
 
-ANALYSIS_ROUTING_KEY = 'ingest.bundle.analysis.submitted'
-
-ASSAY_COMPLETED_ROUTING_KEY = 'ingest.assay.manifest.completed'
-EXPERIMENT_COMPLETED_ROUTING_KEY = 'ingest.assay.experiment.exported'
+ASSAY_COMPLETED_ROUTING_KEY = 'ingest.exporter.manifest.completed'
+EXPERIMENT_COMPLETED_ROUTING_KEY = 'ingest.exporter.experiment.exported'
 
 
 RETRY_POLICY = {
