@@ -35,7 +35,6 @@ class ExperimentMessage:
             return ExperimentMessage(data["documentId"],
                                      data["documentUuid"],
                                      data["envelopeUuid"],
-                                     data["bundleUuid"],
                                      data["versionTimestamp"],
                                      data["index"],
                                      data["total"],
