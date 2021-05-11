@@ -23,8 +23,6 @@ class ExperimentMessage:
     process_id: str
     process_uuid: str
     submission_uuid: str
-    experiment_uuid: str
-    experiment_version: str
     experiment_index: int
     total: int
     job_id: str
