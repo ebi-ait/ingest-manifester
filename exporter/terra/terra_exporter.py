@@ -21,7 +21,7 @@ class TerraExporter:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
-    def export(self, process_uuid, submission_uuid, experiment_uuid, experiment_version, export_job_id):
+    def export(self, process_uuid, submission_uuid, export_job_id):
         process = self.get_process(process_uuid)
         project = self.project_for_process(process)
         submission = self.get_submission(submission_uuid)
@@ -38,7 +38,7 @@ class TerraExporter:
         experiment_graph = self.graph_crawler.generate_complete_experiment_graph(process, project)
         
         self.dcp_staging_client.write_metadatas(experiment_graph.nodes.get_nodes(), project.uuid)
-        self.dcp_staging_client.write_links(experiment_graph.links, experiment_uuid, experiment_version, project.uuid)
+        self.dcp_staging_client.write_links(experiment_graph.links, process_uuid, process.dcp_version, project.uuid)
 
     def get_process(self, process_uuid) -> MetadataResource:
         return MetadataResource.from_dict(self.ingest_client.get_entity_by_uuid('processes', process_uuid))
