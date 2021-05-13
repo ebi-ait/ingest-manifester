@@ -43,7 +43,6 @@ class TerraExporter:
                 self.gcs_xfer._assert_job_complete(transfer_job_spec.name)
                 self.job_service.set_data_transfer_complete(export_job_id)
             else:
-                self.ingest_client.get_job(export_job_id)
                 self.job_service.wait_for_data_transfer_to_complete(export_job_id)
 
         self.logger.info("Exporting metadata..")
