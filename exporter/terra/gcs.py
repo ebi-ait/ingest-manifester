@@ -1,8 +1,9 @@
 import googleapiclient.discovery
-from typing import IO, Dict, Any, Union, Optional
+from typing import IO, Dict, Any, Union, Optional, Callable
 from datetime import datetime
 import time
 
+import polling
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
 from google.api_core.exceptions import PreconditionFailed, ServiceUnavailable
@@ -85,11 +86,8 @@ class GcsXferStorage:
         transfer_job_spec = self.transfer_job_spec_for_upload_area(source_bucket, upload_area_key, project_uuid, export_job_id)
         success = False
         try:
-            maybe_existing_job = self.get_job(transfer_job_spec.name)
-
-            if maybe_existing_job is None:
-                self.client.transferJobs().create(body=transfer_job_spec.to_dict()).execute()
-                success = True
+            self.client.transferJobs().create(body=transfer_job_spec.to_dict()).execute()
+            success = True
 
         except HttpError as e:
             if e.resp.status == 409:
@@ -111,61 +109,32 @@ class GcsXferStorage:
                                dest_bucket=self.gcs_dest_bucket,
                                dest_path=f'{self.gcs_bucket_prefix}/{project_uuid}/data/')
 
-    def get_job(self, job_name: str) -> Optional[Dict]:
-        two_seconds = 2
-        two_minutes_in_seconds = 60 * 2
-        return self._get_job(job_name, two_seconds, 0, two_minutes_in_seconds)
+    def wait_for_job_to_complete(self, job_name: str, compute_wait_time:Callable, start_wait_time_sec: int, max_wait_time_sec: int):
+        try:
+            polling.poll(
+                lambda: self.is_job_complete(job_name),
+                step=start_wait_time_sec,
+                step_function=compute_wait_time,
+                timeout=max_wait_time_sec
+            )
+        except polling.TimeoutException as te:
+            raise
 
-    def _get_job(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int) -> Optional[Dict]:
-        if time_waited > max_wait_time_secs:
-            raise Exception(f'Timeout trying to read transfer job {job_name}')
-        else:
-            try:
-                return self.client.transferJobs().get(jobName=job_name,
-                                                                    projectId=self.project_id).execute()
-            except HttpError as e:
-                if e.resp.status == 404:
-                    return None
-                elif e.resp.status == 429:
-                    self.logger.info(f'Rate-limited for request to read transferJob {job_name}. Waiting {str(wait_time)} seconds.'
-                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
-                    time.sleep(wait_time)
-                    return self._get_job(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
-                else:
-                    raise
+    def is_job_complete(self, job_name: str):
+        request = self.client.transferOperations().list(name="transferOperations",
+                                                        filter=json.dumps({
+                                                            "project_id": self.project_id,
+                                                            "job_names": [job_name]
+                                                        }))
+        response: Dict = request.execute()
 
-    def assert_job_complete(self, job_name: str):
-        max_wait_time_seconds = 60 * 60 * 6
-        wait_time_seconds = 2
-        time_waited_seconds = 0
-        return self._assert_job_complete(job_name, wait_time_seconds, time_waited_seconds, max_wait_time_seconds)
+        try:
+            operations = response.get("operations",[])
+            operation = operations[0] if len(operations) > 0 else None
+            return operation and operation.get('done', False)
 
-    def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
-        if time_waited > max_wait_time_secs:
-            raise Exception(f'Timeout waiting for transfer job to succeed for job {job_name}')
-        else:
-            request = self.client.transferOperations().list(name="transferOperations",
-                                                            filter=json.dumps({
-                                                                "project_id": self.project_id,
-                                                                "job_names": [job_name]
-                                                            }))
-            response: Dict = request.execute()
-            try:
-                if response.get("operations") and len(response["operations"]) > 0 and response["operations"][0].get("done"):
-                    return
-                else:
-                    self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(wait_time)} seconds.'
-                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
-                    time.sleep(wait_time)
-
-                    # Wait time is first doubled and then limited to 10 minutes
-                    # This is due to the quota limit: https://cloud.google.com/storage-transfer/quotas
-                    # Other areas in exporter that use quota are self.get_job and GcsStorage.assert_file_uploaded
-                    # This can be tweaked
-                    new_wait_time = min(wait_time * 2, 10 * 60)
-                    return self._assert_job_complete(job_name, new_wait_time, time_waited + wait_time, max_wait_time_secs)
-            except (KeyError, IndexError) as e:
-                raise Exception(f'Failed to parse transferOperations') from e
+        except (KeyError, IndexError) as e:
+            raise Exception(f'Failed to parse transferOperations') from e
 
     def create_transfer_client(self):
         return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)

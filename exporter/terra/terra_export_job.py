@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Callable
 from ingest.api.ingestapi import IngestApi
 import requests
 import json
@@ -57,7 +57,8 @@ class TerraExportJob:
         job_id = str(data["_links"]["self"]["href"]).split("/")[0]
         num_expected_assays = int(data["context"]["totalAssayCount"])
         is_data_transfer_complete = data["context"].get("isDataTransferComplete")
-        return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["status"].upper()), is_data_transfer_complete)
+        return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["status"].upper()),
+                              is_data_transfer_complete)
 
 
 class TerraExportJobService:
@@ -108,12 +109,13 @@ class TerraExportJobService:
     def is_data_transfer_complete(self, job_id: str):
         return self.get_job(job_id).is_data_transfer_complete
 
-    def wait_for_data_transfer_to_complete(self, job_id:str):
+    def wait_for_data_transfer_to_complete(self, job_id: str, compute_wait_time: Callable, start_wait_time_sec, max_wait_time_sec: int):
         try:
             polling.poll(
                 lambda: self.is_data_transfer_complete(job_id),
-                step=100,
-                timeout= 60 * 60 * 6  # TODO get this from env var, should this be the same as GCP?
+                step=start_wait_time_sec,
+                step_function=compute_wait_time,
+                timeout=max_wait_time_sec
             )
         except polling.TimeoutException as te:
             raise
