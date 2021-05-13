@@ -3,7 +3,7 @@ from exporter import utils
 from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
-from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable
+from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable, TransferJobSpec
 from typing import Iterable, Dict, Tuple
 
 from io import StringIO
@@ -61,11 +61,14 @@ class DcpStagingClient:
         self.schema_service = schema_service
         self.ingest_client = ingest_client
 
-    def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str):
+    def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str) -> (TransferJobSpec, bool):
         upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
         transfer_job_spec, success = self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], project_uuid, export_job_id)
         return transfer_job_spec, success
+
+    def wait_for_transfer_to_complete(self, job_name: str):
+        self.gcs_xfer.assert_job_complete(job_name)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:

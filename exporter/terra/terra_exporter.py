@@ -40,7 +40,7 @@ class TerraExporter:
             if success:
                 # Only the exporter process which is successful should be polling GCP Transfer service if the job is complete
                 # This is to avoid hitting the rate limit 500 requests per 100 sec https://cloud.google.com/storage-transfer/quotas
-                self.gcs_xfer._assert_job_complete(transfer_job_spec.name)
+                self.dcp_staging_client.wait_for_transfer_to_complete(transfer_job_spec.name)
                 self.job_service.set_data_transfer_complete(export_job_id)
             else:
                 self.job_service.wait_for_data_transfer_to_complete(export_job_id)
