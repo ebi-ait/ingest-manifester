@@ -86,11 +86,8 @@ class GcsXferStorage:
         transfer_job_spec = self.transfer_job_spec_for_upload_area(source_bucket, upload_area_key, project_uuid, export_job_id)
         success = False
         try:
-            maybe_existing_job = self.get_job(transfer_job_spec.name)
-
-            if maybe_existing_job is None:
-                self.client.transferJobs().create(body=transfer_job_spec.to_dict()).execute()
-                success = True
+            self.client.transferJobs().create(body=transfer_job_spec.to_dict()).execute()
+            success = True
 
         except HttpError as e:
             if e.resp.status == 409:
@@ -111,29 +108,6 @@ class GcsXferStorage:
                                aws_access_key_secret=self.aws_access_key_secret,
                                dest_bucket=self.gcs_dest_bucket,
                                dest_path=f'{self.gcs_bucket_prefix}/{project_uuid}/data/')
-
-    def get_job(self, job_name: str) -> Optional[Dict]:
-        two_seconds = 2
-        two_minutes_in_seconds = 60 * 2
-        return self._get_job(job_name, two_seconds, 0, two_minutes_in_seconds)
-
-    def _get_job(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int) -> Optional[Dict]:
-        if time_waited > max_wait_time_secs:
-            raise Exception(f'Timeout trying to read transfer job {job_name}')
-        else:
-            try:
-                return self.client.transferJobs().get(jobName=job_name,
-                                                                    projectId=self.project_id).execute()
-            except HttpError as e:
-                if e.resp.status == 404:
-                    return None
-                elif e.resp.status == 429:
-                    self.logger.info(f'Rate-limited for request to read transferJob {job_name}. Waiting {str(wait_time)} seconds.'
-                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
-                    time.sleep(wait_time)
-                    return self._get_job(job_name, wait_time * 2, time_waited + wait_time, max_wait_time_secs)
-                else:
-                    raise
 
     def wait_for_job_to_complete(self, job_name: str, compute_wait_time:Callable, start_wait_time_sec: int, max_wait_time_sec: int):
         try:
