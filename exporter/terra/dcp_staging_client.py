@@ -65,7 +65,7 @@ class DcpStagingClient:
         upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
         transfer_job_spec, success = self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], project_uuid, export_job_id)
-        return transfer_job_spec
+        return transfer_job_spec, success
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:

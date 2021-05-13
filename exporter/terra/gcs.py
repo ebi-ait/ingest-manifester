@@ -94,7 +94,7 @@ class GcsXferStorage:
         except HttpError as e:
             if e.resp.status == 409:
                 success = False
-                return transfer_job_spec
+                return transfer_job_spec, success
             else:
                 raise
 
