@@ -33,8 +33,9 @@ class TerraExporter:
 
         self.logger.info(f"The export data flag has been set to {export_data}")
 
-        if export_data:
+        if export_data and not self.job_service.is_data_transfer_complete(export_job_id):
             self.logger.info("Exporting data files..")
+
             transfer_job_spec, success = self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
 
             if success:
