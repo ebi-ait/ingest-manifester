@@ -56,7 +56,7 @@ class TerraExportJob:
     def from_dict(data: Dict) -> 'TerraExportJob':
         job_id = str(data["_links"]["self"]["href"]).split("/")[0]
         num_expected_assays = int(data["context"]["totalAssayCount"])
-        is_data_transfer_complete = data["context"]["isDataTransferComplete"]
+        is_data_transfer_complete = data["context"].get("isDataTransferComplete")
         return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["status"].upper()), is_data_transfer_complete)
 
 
@@ -111,7 +111,7 @@ class TerraExportJobService:
         try:
             polling.poll(
                 lambda: self.is_data_transfer_complete(job_id),
-                step=2,
+                step=100,
                 timeout= 60 * 60 * 6  # TODO get this from env var, should this be the same as GCP?
             )
         except polling.TimeoutException as te:
