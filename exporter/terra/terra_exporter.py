@@ -2,9 +2,10 @@ from ingest.api.ingestapi import IngestApi
 from exporter.metadata import MetadataResource, MetadataService, DataFile
 from exporter.graph.graph_crawler import GraphCrawler
 from exporter.terra.dcp_staging_client import DcpStagingClient
-from typing import Iterable
 
 import logging
+
+from exporter.terra.terra_export_job import TerraExportJobService
 
 
 class TerraExporter:
@@ -12,11 +13,13 @@ class TerraExporter:
                  ingest_client: IngestApi,
                  metadata_service: MetadataService,
                  graph_crawler: GraphCrawler,
-                 dcp_staging_client: DcpStagingClient):
+                 dcp_staging_client: DcpStagingClient,
+                 job_service: TerraExportJobService):
         self.ingest_client = ingest_client
         self.metadata_service = metadata_service
         self.graph_crawler = graph_crawler
         self.dcp_staging_client = dcp_staging_client
+        self.job_service = job_service
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -32,7 +35,16 @@ class TerraExporter:
 
         if export_data:
             self.logger.info("Exporting data files..")
-            self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
+            transfer_job_spec, success = self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
+
+            if success:
+                # Only the exporter process which is successful should be polling GCP Transfer service if the job is complete
+                # This is to avoid hitting the rate limit 500 requests per 100 sec https://cloud.google.com/storage-transfer/quotas
+                self.gcs_xfer._assert_job_complete(transfer_job_spec.name)
+                self.job_service.set_data_transfer_complete(export_job_id)
+            else:
+                self.ingest_client.get_job(export_job_id)
+                self.job_service.wait_for_data_transfer_to_complete(export_job_id)
 
         self.logger.info("Exporting metadata..")
         experiment_graph = self.graph_crawler.generate_complete_experiment_graph(process, project)

@@ -1,7 +1,5 @@
-from sys import implementation
 import googleapiclient.discovery
 from typing import IO, Dict, Any, Union, Optional
-from exporter.metadata import DataFile
 from datetime import datetime
 import time
 
@@ -84,22 +82,25 @@ class GcsXferStorage:
         self.logger.setLevel(logging.INFO)
 
     def transfer_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str):
-        transfer_job = self.transfer_job_for_upload_area(source_bucket, upload_area_key, project_uuid, export_job_id)
-
+        transfer_job_spec = self.transfer_job_spec_for_upload_area(source_bucket, upload_area_key, project_uuid, export_job_id)
+        success = False
         try:
-            maybe_existing_job = self.get_job(transfer_job.name)
-            if maybe_existing_job is not None:
-                self.assert_job_complete(transfer_job.name)
-            else:
-                self.client.transferJobs().create(body=transfer_job.to_dict()).execute()
-                self.assert_job_complete(transfer_job.name)
+            maybe_existing_job = self.get_job(transfer_job_spec.name)
+
+            if maybe_existing_job is None:
+                self.client.transferJobs().create(body=transfer_job_spec.to_dict()).execute()
+                success = True
+
         except HttpError as e:
             if e.resp.status == 409:
-                self.assert_job_complete(transfer_job.name)
+                success = False
+                return transfer_job_spec
             else:
                 raise
 
-    def transfer_job_for_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str) -> TransferJobSpec:
+        return transfer_job_spec, success
+
+    def transfer_job_spec_for_upload_area(self, source_bucket: str, upload_area_key: str, project_uuid: str, export_job_id: str) -> TransferJobSpec:
         return TransferJobSpec(name=f'transferJobs/{export_job_id}',
                                description=f'Transfer job for ingest upload-service area {upload_area_key} and export-job-id {export_job_id}',
                                project_id=self.project_id,

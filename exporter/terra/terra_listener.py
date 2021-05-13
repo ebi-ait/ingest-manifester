@@ -89,7 +89,7 @@ class _TerraListener(ConsumerProducerMixin):
             self.logger.exception(e)
 
     def log_complete_assay(self, job_id: str, assay_process_id: str):
-        self.job_service.complete_assay(job_id, assay_process_id)
+        self.job_service.create_export_entity(job_id, assay_process_id)
 
     @staticmethod
     def queue_from_config(queue_config: QueueConfig) -> Queue:
