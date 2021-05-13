@@ -162,33 +162,6 @@ class GcsXferStorage:
         except (KeyError, IndexError) as e:
             raise Exception(f'Failed to parse transferOperations') from e
 
-    def _assert_job_complete(self, job_name: str, start_wait_time_sec: int, time_waited_sec: int, max_wait_time_sec: int):
-        if time_waited_sec > max_wait_time_sec:
-            raise Exception(f'Timeout waiting for transfer job to succeed for job {job_name}')
-        else:
-            request = self.client.transferOperations().list(name="transferOperations",
-                                                            filter=json.dumps({
-                                                                "project_id": self.project_id,
-                                                                "job_names": [job_name]
-                                                            }))
-            response: Dict = request.execute()
-            try:
-                if response.get("operations") and len(response["operations"]) > 0 and response["operations"][0].get("done"):
-                    return
-                else:
-                    self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(start_wait_time_sec)} seconds.'
-                                     f'(total time waited: {str(time_waited_sec)}, max wait time: {str(max_wait_time_sec)} seconds)')
-                    time.sleep(start_wait_time_sec)
-
-                    # Wait time is first doubled and then limited to 10 minutes
-                    # This is due to the quota limit: https://cloud.google.com/storage-transfer/quotas
-                    # Other areas in exporter that use quota are self.get_job and GcsStorage.assert_file_uploaded
-                    # This can be tweaked
-                    new_wait_time = min(start_wait_time_sec * 2, 10 * 60)
-                    return self._assert_job_complete(job_name, new_wait_time, time_waited_sec + start_wait_time_sec, max_wait_time_sec)
-            except (KeyError, IndexError) as e:
-                raise Exception(f'Failed to parse transferOperations') from e
-
     def create_transfer_client(self):
         return googleapiclient.discovery.build('storagetransfer', 'v1', credentials=self.credentials, cache_discovery=False)
 
