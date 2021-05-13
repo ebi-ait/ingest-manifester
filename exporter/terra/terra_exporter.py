@@ -38,13 +38,24 @@ class TerraExporter:
 
             transfer_job_spec, success = self.dcp_staging_client.transfer_data_files(submission, project.uuid, export_job_id)
 
+            # Only the exporter process which is successful should be polling GCP Transfer service if the job is complete
+            # This is to avoid hitting the rate limit 500 requests per 100 sec https://cloud.google.com/storage-transfer/quotas
+            def compute_wait_time(start_wait_time_sec):
+                max_wait_interval_sec = 10 * 60
+                return min(start_wait_time_sec * 2, max_wait_interval_sec)
+
+            max_wait_time_sec = 60 * 60 * 6
+            start_wait_time_sec = 2
+
             if success:
-                # Only the exporter process which is successful should be polling GCP Transfer service if the job is complete
-                # This is to avoid hitting the rate limit 500 requests per 100 sec https://cloud.google.com/storage-transfer/quotas
-                self.dcp_staging_client.wait_for_transfer_to_complete(transfer_job_spec.name)
+                self.logger.info("Google Cloud Transfer job was successfully created..")
+                self.logger.info("Waiting for job to complete..")
+                self.dcp_staging_client.wait_for_transfer_to_complete(transfer_job_spec.name, compute_wait_time, start_wait_time_sec, max_wait_time_sec)
                 self.job_service.set_data_transfer_complete(export_job_id)
             else:
-                self.job_service.wait_for_data_transfer_to_complete(export_job_id)
+                self.logger.info("Google Cloud Transfer job was already created..")
+                self.logger.info("Waiting for job to complete..")
+                self.job_service.wait_for_data_transfer_to_complete(export_job_id, compute_wait_time, start_wait_time_sec, max_wait_time_sec )
 
         self.logger.info("Exporting metadata..")
         experiment_graph = self.graph_crawler.generate_complete_experiment_graph(process, project)

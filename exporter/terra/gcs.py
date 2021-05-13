@@ -1,8 +1,9 @@
 import googleapiclient.discovery
-from typing import IO, Dict, Any, Union, Optional
+from typing import IO, Dict, Any, Union, Optional, Callable
 from datetime import datetime
 import time
 
+import polling
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
 from google.api_core.exceptions import PreconditionFailed, ServiceUnavailable
@@ -134,14 +135,35 @@ class GcsXferStorage:
                 else:
                     raise
 
-    def assert_job_complete(self, job_name: str):
-        max_wait_time_seconds = 60 * 60 * 6
-        wait_time_seconds = 2
-        time_waited_seconds = 0
-        return self._assert_job_complete(job_name, wait_time_seconds, time_waited_seconds, max_wait_time_seconds)
+    def wait_for_job_to_complete(self, job_name: str, compute_wait_time:Callable, start_wait_time_sec: int, max_wait_time_sec: int):
+        try:
+            polling.poll(
+                lambda: self.is_job_complete(job_name),
+                step=start_wait_time_sec,
+                step_function=compute_wait_time,
+                timeout=max_wait_time_sec
+            )
+        except polling.TimeoutException as te:
+            raise
 
-    def _assert_job_complete(self, job_name: str, wait_time: int, time_waited: int, max_wait_time_secs: int):
-        if time_waited > max_wait_time_secs:
+    def is_job_complete(self, job_name: str):
+        request = self.client.transferOperations().list(name="transferOperations",
+                                                        filter=json.dumps({
+                                                            "project_id": self.project_id,
+                                                            "job_names": [job_name]
+                                                        }))
+        response: Dict = request.execute()
+
+        try:
+            operations = response.get("operations",[])
+            operation = operations[0] if len(operations) > 0 else None
+            return operation and operation.get('done', False)
+
+        except (KeyError, IndexError) as e:
+            raise Exception(f'Failed to parse transferOperations') from e
+
+    def _assert_job_complete(self, job_name: str, start_wait_time_sec: int, time_waited_sec: int, max_wait_time_sec: int):
+        if time_waited_sec > max_wait_time_sec:
             raise Exception(f'Timeout waiting for transfer job to succeed for job {job_name}')
         else:
             request = self.client.transferOperations().list(name="transferOperations",
@@ -154,16 +176,16 @@ class GcsXferStorage:
                 if response.get("operations") and len(response["operations"]) > 0 and response["operations"][0].get("done"):
                     return
                 else:
-                    self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(wait_time)} seconds.'
-                                     f'(total time waited: {str(time_waited)}, max wait time: {str(max_wait_time_secs)} seconds)')
-                    time.sleep(wait_time)
+                    self.logger.info(f'Awaiting complete transfer for job {job_name}. Waiting {str(start_wait_time_sec)} seconds.'
+                                     f'(total time waited: {str(time_waited_sec)}, max wait time: {str(max_wait_time_sec)} seconds)')
+                    time.sleep(start_wait_time_sec)
 
                     # Wait time is first doubled and then limited to 10 minutes
                     # This is due to the quota limit: https://cloud.google.com/storage-transfer/quotas
                     # Other areas in exporter that use quota are self.get_job and GcsStorage.assert_file_uploaded
                     # This can be tweaked
-                    new_wait_time = min(wait_time * 2, 10 * 60)
-                    return self._assert_job_complete(job_name, new_wait_time, time_waited + wait_time, max_wait_time_secs)
+                    new_wait_time = min(start_wait_time_sec * 2, 10 * 60)
+                    return self._assert_job_complete(job_name, new_wait_time, time_waited_sec + start_wait_time_sec, max_wait_time_sec)
             except (KeyError, IndexError) as e:
                 raise Exception(f'Failed to parse transferOperations') from e
 
