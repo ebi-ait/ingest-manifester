@@ -100,7 +100,8 @@ class TerraExportJobService:
 
     def set_data_transfer_complete(self, job_id: str):
         job_url = self.get_job_url(job_id)
-        context = self.ingest_client.get(job_url).json()
+        job = self.ingest_client.get(job_url).json()
+        context = job["context"]
         context.update({"isDataTransferComplete": True})
         self.ingest_client.patch(job_url, {"context": context})
 
