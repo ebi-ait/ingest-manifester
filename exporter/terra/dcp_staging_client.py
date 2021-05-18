@@ -3,8 +3,8 @@ from exporter import utils
 from exporter.metadata import MetadataResource, DataFile, FileChecksums
 from exporter.graph.experiment_graph import LinkSet
 from exporter.schema import SchemaService
-from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable
-from typing import Iterable, Dict, Tuple
+from exporter.terra.gcs import GcsXferStorage, GcsStorage, Streamable, TransferJobSpec
+from typing import Iterable, Dict, Tuple, Callable
 
 from io import StringIO
 
@@ -61,10 +61,14 @@ class DcpStagingClient:
         self.schema_service = schema_service
         self.ingest_client = ingest_client
 
-    def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str):
+    def transfer_data_files(self, submission: Dict, project_uuid, export_job_id: str) -> (TransferJobSpec, bool):
         upload_area = submission["stagingDetails"]["stagingAreaLocation"]["value"]
         bucket_and_key = self.bucket_and_key_for_upload_area(upload_area)
-        self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], project_uuid, export_job_id)
+        transfer_job_spec, success = self.gcs_xfer.transfer_upload_area(bucket_and_key[0], bucket_and_key[1], project_uuid, export_job_id)
+        return transfer_job_spec, success
+
+    def wait_for_transfer_to_complete(self, job_name: str, compute_wait_time_sec:Callable, start_wait_time_sec: int, max_wait_time_sec: int):
+        self.gcs_xfer.wait_for_job_to_complete(job_name, compute_wait_time_sec, start_wait_time_sec, max_wait_time_sec)
 
     def write_metadatas(self, metadatas: Iterable[MetadataResource], project_uuid: str):
         for metadata in metadatas:
@@ -87,8 +91,8 @@ class DcpStagingClient:
         if metadata.metadata_type == "file":
             self.write_file_descriptor(metadata, project_uuid)
 
-    def write_links(self, link_set: LinkSet, experiment_uuid: str, experiment_version: str, project_uuid: str):
-        dest_object_key = f'{project_uuid}/links/{experiment_uuid}_{experiment_version}_{project_uuid}.json'
+    def write_links(self, link_set: LinkSet, process_uuid: str, process_version: str, project_uuid: str):
+        dest_object_key = f'{project_uuid}/links/{process_uuid}_{process_version}_{project_uuid}.json'
         links_json = self.generate_links_json(link_set)
         data_stream = DcpStagingClient.dict_to_json_stream(links_json)
         self.write_to_staging_bucket(dest_object_key, data_stream)

@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Callable
 from ingest.api.ingestapi import IngestApi
 import requests
 import json
 
 from enum import Enum
+import polling
 
 
 @dataclass
@@ -49,19 +50,22 @@ class TerraExportJob:
     job_id: str
     num_expected_assays: int
     export_state: ExportJobState
+    is_data_transfer_complete: bool
 
     @staticmethod
     def from_dict(data: Dict) -> 'TerraExportJob':
         job_id = str(data["_links"]["self"]["href"]).split("/")[0]
         num_expected_assays = int(data["context"]["totalAssayCount"])
-        return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["status"].upper()))
+        is_data_transfer_complete = data["context"].get("isDataTransferComplete")
+        return TerraExportJob(job_id, num_expected_assays, ExportJobState(data["status"].upper()),
+                              is_data_transfer_complete)
 
 
 class TerraExportJobService:
     def __init__(self, ingest_client: IngestApi):
         self.ingest_client = ingest_client
 
-    def complete_assay(self, job_id: str, assay_process_id: str):
+    def create_export_entity(self, job_id: str, assay_process_id: str):
         assay_export_entity = TerraExportEntity(assay_process_id, [])
         create_export_entity_url = self.get_export_entities_url(job_id)
         requests.post(create_export_entity_url, json.dumps(assay_export_entity.to_dict()),
@@ -94,3 +98,24 @@ class TerraExportJobService:
         entities_url = self.get_export_entities_url(job_id)
         find_entities_by_status_url = f'{entities_url}?status={ExportJobState.EXPORTED.value}'
         return int(self.ingest_client.get(find_entities_by_status_url).json()["page"]["totalElements"])
+
+    def set_data_transfer_complete(self, job_id: str):
+        job_url = self.get_job_url(job_id)
+        job = self.ingest_client.get(job_url).json()
+        context = job["context"]
+        context.update({"isDataTransferComplete": True})
+        self.ingest_client.patch(job_url, {"context": context})
+
+    def is_data_transfer_complete(self, job_id: str):
+        return self.get_job(job_id).is_data_transfer_complete
+
+    def wait_for_data_transfer_to_complete(self, job_id: str, compute_wait_time: Callable, start_wait_time_sec, max_wait_time_sec: int):
+        try:
+            polling.poll(
+                lambda: self.is_data_transfer_complete(job_id),
+                step=start_wait_time_sec,
+                step_function=compute_wait_time,
+                timeout=max_wait_time_sec
+            )
+        except polling.TimeoutException as te:
+            raise

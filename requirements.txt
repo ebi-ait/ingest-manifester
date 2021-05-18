@@ -9,3 +9,4 @@ cachetools
 -e git+https://github.com/ebi-ait/ingest-client.git@7f04ab9a#egg=hca_ingest
 smart_open[all]
 google-api-python-client
+polling
