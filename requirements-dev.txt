@@ -1,4 +1,5 @@
+behave
 mock
-nose
 mypy
+nose
 -r requirements.txt
